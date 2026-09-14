@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>回转寿司大作战 · かいてんずし</title>
+<style>
+/* SECTION: reset-vars */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-0:#0d0b14;
+  --bg-1:#191326;
+  --bg-2:#241a33;
+  --ink:#f7efe2;
+  --ink-dim:#b6a99a;
+  --red:#e0483c;
+  --red-deep:#a8281f;
+  --gold:#f2c561;
+  --gold-soft:#ffe0a0;
+  --wood:#7a5236;
+  --wood-lt:#a97a52;
+  --steel:#2c3140;
+  --wasabi:#8ec63f;
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+  --radius:16px;
+}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(1100px 620px at 50% -8%, rgba(255,164,84,.16), transparent 62%),
+    radial-gradient(760px 520px at 8% 106%, rgba(224,72,60,.14), transparent 60%),
+    linear-gradient(168deg,var(--bg-1) 0%,var(--bg-0) 46%,#08070d 100%);
+  color:var(--ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,sans-serif;
+  min-height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:14px 12px 22px;
+  overflow-x:hidden;
+  -webkit-tap-highlight-color:transparent;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.022) 0 1px,transparent 1px 46px),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 46px);
+  mask-image:radial-gradient(70% 60% at 50% 40%,#000,transparent 100%);
+}
+.app{position:relative;z-index:1;width:100%;max-width:1000px}
+
+/* SECTION: titlebar */
+.titlebar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:2px 4px 12px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand-mark{
+  width:46px;height:46px;flex:0 0 46px;border-radius:14px;
+  background:linear-gradient(150deg,var(--red) 0%,var(--red-deep) 100%);
+  display:grid;place-items:center;font-size:26px;line-height:1;
+  box-shadow:0 6px 18px rgba(224,72,60,.42),inset 0 1px 0 rgba(255,255,255,.32);
+  border:1px solid rgba(255,224,160,.4);
+}
+.brand-txt h1{
+  font-family:"Yu Mincho","Hiragino Mincho ProN","Songti SC","SimSun",serif;
+  font-size:clamp(19px,3.4vw,27px);font-weight:700;letter-spacing:.06em;line-height:1.15;
+  background:linear-gradient(180deg,#fff7e6 12%,var(--gold) 88%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 0 rgba(0,0,0,.28);
+}
+.brand-txt p{
+  font-size:11px;letter-spacing:.34em;color:var(--ink-dim);margin-top:3px;
+  font-family:"Yu Mincho","Hiragino Mincho ProN",serif;
+}
+.tools{display:flex;gap:8px}
+.icon-btn{
+  width:40px;height:40px;border-radius:12px;cursor:pointer;
+  border:1px solid rgba(247,239,226,.16);
+  background:linear-gradient(180deg,rgba(247,239,226,.09),rgba(247,239,226,.02));
+  color:var(--ink);font-size:17px;display:grid;place-items:center;
+  transition:transform .16s ease,background .2s ease,border-color .2s ease;
+}
+.icon-btn:hover{transform:translateY(-2px);background:rgba(242,197,97,.16);border-color:rgba(242,197,97,.5)}
+.icon-btn:active{transform:translateY(0) scale(.94)}
+.icon-btn.off{opacity:.42}
+
+/* SECTION: hud */
+.hud{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;
+  padding:10px;border-radius:var(--radius);margin-bottom:10px;
+  background:linear-gradient(180deg,rgba(36,26,51,.92),rgba(15,12,24,.92));
+  border:1px solid rgba(247,239,226,.11);
+  box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.06);
+}
+.stat{
+  padding:7px 10px;border-radius:11px;text-align:center;min-width:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.012));
+  border:1px solid rgba(255,255,255,.07);
+}
+.stat .k{font-size:10px;letter-spacing:.18em;color:var(--ink-dim);white-space:nowrap}
+.stat .v{
+  font-size:clamp(16px,2.7vw,22px);font-weight:800;line-height:1.28;
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;
+  display:flex;align-items:baseline;justify-content:center;gap:3px;
+}
+.stat.score .v{color:var(--gold-soft);text-shadow:0 0 16px rgba(242,197,97,.5)}
+.stat.best .v{color:#9fd8ff}
+.stat.level .v{color:#c6f7a5}
+.stat.life .v{font-size:clamp(13px,2.2vw,17px);letter-spacing:.1em;color:#ff9d92}
+.stat.ammo .v{color:#ffd7a8}
+.bar{height:5px;border-radius:99px;background:rgba(0,0,0,.5);overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;border-radius:99px;transition:width .12s linear}
+.bar.ammo i{background:linear-gradient(90deg,#8a5a2b,#ffd7a8)}
+.bar.combo{height:0;margin:0;transition:height .2s}
+.bar.combo i{background:linear-gradient(90deg,var(--red),var(--gold))}
+.stat.combo{position:relative;overflow:hidden}
+.stat.combo.hot{border-color:rgba(242,197,97,.55);background:linear-gradient(180deg,rgba(242,197,97,.18),rgba(224,72,60,.08))}
+.stat.combo.hot .v{color:#fff2cf;text-shadow:0 0 18px rgba(255,190,90,.85)}
+.stat.combo .bar.combo{position:absolute;left:0;right:0;bottom:0;height:4px}
+.pulse{animation:pulse .3s ease}
+@keyframes pulse{0%{transform:scale(1)}42%{transform:scale(1.22)}100%{transform:scale(1)}}
+
+/* SECTION: orders */
+.orders{
+  display:flex;align-items:stretch;gap:8px;padding:9px 10px;border-radius:var(--radius);
+  margin-bottom:10px;overflow-x:auto;scrollbar-width:thin;
+  background:linear-gradient(180deg,rgba(122,82,54,.42),rgba(40,26,18,.5));
+  border:1px solid rgba(242,197,97,.2);
+}
+.orders::-webkit-scrollbar{height:5px}
+.orders::-webkit-scrollbar-thumb{background:rgba(242,197,97,.4);border-radius:99px}
+.orders-title{
+  flex:0 0 auto;display:flex;flex-direction:column;justify-content:center;gap:2px;
+  padding:0 12px 0 4px;border-right:1px dashed rgba(242,197,97,.3);
+  font-family:"Yu Mincho","Songti SC",serif;
+}
+.orders-title b{font-size:14px;color:var(--gold-soft);letter-spacing:.1em;white-space:nowrap}
+.orders-title span{font-size:9px;letter-spacing:.2em;color:rgba(247,239,226,.5)}
+.order-list{display:flex;gap:8px;flex:1 1 auto;min-width:0}
+.order{
+  flex:1 1 0;min-width:118px;display:flex;align-items:center;gap:9px;
+  padding:7px 10px;border-radius:12px;
+  background:linear-gradient(180deg,rgba(20,14,28,.72),rgba(10,8,16,.72));
+  border:1px solid rgba(255,255,255,.09);
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.order.done{border-color:rgba(140,240,150,.65);box-shadow:0 0 20px rgba(120,240,150,.3)}
+.order.urgent{border-color:rgba(255,120,100,.65);animation:urgent 1s ease-in-out infinite}
+@keyframes urgent{0%,100%{box-shadow:0 0 0 rgba(255,90,70,0)}50%{box-shadow:0 0 18px rgba(255,90,70,.5)}}
+.order .face{font-size:25px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.order .body{min-width:0;flex:1 1 auto}
+.order .row{display:flex;align-items:center;gap:5px;font-size:19px;line-height:1.25}
+.order .row em{font-style:normal;font-size:11px;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+.order .pat{height:4px;border-radius:99px;background:rgba(0,0,0,.55);margin-top:5px;overflow:hidden}
+.order .pat i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#7ee08a,#f2c561)}
+.order .pat.low i{background:linear-gradient(90deg,#ff7a5c,#ffd07a)}
+.orders-empty{flex:1 1 auto;display:grid;place-items:center;color:var(--ink-dim);font-size:12px;padding:8px}
+
+/* SECTION: stage */
+.stage{
+  position:relative;width:100%;border-radius:20px;overflow:hidden;
+  background:#0b0912;border:1px solid rgba(247,239,226,.12);
+  box-shadow:var(--shadow),0 0 0 1px rgba(0,0,0,.6),inset 0 0 70px rgba(0,0,0,.6);
+  aspect-ratio:900/640;
+  touch-action:none;
+}
+#game{display:block;width:100%;height:100%;cursor:crosshair}
+.stage.shake{animation:shake .3s cubic-bezier(.36,.07,.19,.97)}
+@keyframes shake{10%,90%{transform:translate3d(-2px,1px,0)}20%,80%{transform:translate3d(4px,-2px,0)}
+30%,50%,70%{transform:translate3d(-7px,2px,0)}40%,60%{transform:translate3d(7px,-1px,0)}}
+.flash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .34s ease}
+.flash.bad{background:radial-gradient(circle at 50% 55%,rgba(150,255,90,.5),rgba(60,150,20,.28) 60%,transparent 78%);opacity:1}
+.flash.good{background:radial-gradient(circle at 50% 40%,rgba(255,220,140,.42),transparent 70%);opacity:1}
+.banner{
+  position:absolute;left:50%;top:36%;transform:translate(-50%,-50%) scale(.6);
+  pointer-events:none;opacity:0;text-align:center;white-space:nowrap;
+}
+.banner.show{animation:bannerIn 1.5s cubic-bezier(.2,1.5,.4,1) forwards}
+@keyframes bannerIn{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.55) rotate(-6deg)}
+  18%{opacity:1;transform:translate(-50%,-50%) scale(1.14) rotate(2deg)}
+  30%{transform:translate(-50%,-50%) scale(1) rotate(0)}
+  74%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-56%) scale(1.04)}
+}
+.banner b{
+  display:block;font-family:"Yu Mincho","Songti SC",serif;font-weight:800;
+  font-size:clamp(26px,5.6vw,50px);letter-spacing:.1em;
+  background:linear-gradient(180deg,#fff8e8,var(--gold) 70%,#e08a2c);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 4px 14px rgba(0,0,0,.75)) drop-shadow(0 0 26px rgba(242,197,97,.5));
+}
+.banner span{display:block;margin-top:6px;font-size:clamp(11px,2vw,14px);letter-spacing:.26em;color:#ffe6b8;text-shadow:0 2px 8px #000}
+
+/* SECTION: overlays */
+.overlay{
+  position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;
+  padding:18px 16px;text-align:center;
+  background:radial-gradient(circle at 50% 34%,rgba(30,20,44,.86),rgba(6,5,11,.95) 72%);
+  backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+  opacity:0;visibility:hidden;transition:opacity .3s ease,visibility .3s;
+}
+.overlay.show{opacity:1;visibility:visible}
+.panel{width:100%;max-width:520px;max-height:100%;overflow-y:auto;scrollbar-width:thin}
+.panel::-webkit-scrollbar{width:5px}
+.panel::-webkit-scrollbar-thumb{background:rgba(242,197,97,.4);border-radius:99px}
+.panel-art{font-size:clamp(48px,11vw,76px);line-height:1;filter:drop-shadow(0 10px 24px rgba(0,0,0,.6));animation:floaty 3.2s ease-in-out infinite}
+@keyframes floaty{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-11px) rotate(4deg)}}
+.panel h2{
+  font-family:"Yu Mincho","Hiragino Mincho ProN","Songti SC",serif;font-weight:800;
+  font-size:clamp(26px,5.6vw,42px);letter-spacing:.09em;line-height:1.2;margin-top:10px;
+  background:linear-gradient(180deg,#fff8e8 8%,var(--gold) 72%,#dd8f2e);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 3px 10px rgba(0,0,0,.6));
+}
+.panel .kana{font-size:11px;letter-spacing:.42em;color:rgba(247,239,226,.55);margin-top:7px;font-family:"Yu Mincho",serif}
+.panel .lead{font-size:clamp(12px,2.4vw,14px);line-height:1.75;color:#ded2c2;margin:14px auto 0;max-width:420px}
+.rules{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:7px;
+  margin:16px 0 4px;text-align:left;
+}
+.rule{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:11px;font-size:12px;line-height:1.45;
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.08);color:#e6dbc9;
+}
+.rule i{font-style:normal;font-size:19px;flex:0 0 auto;line-height:1}
+.rule b{color:var(--gold-soft);font-weight:700}
+.rule.warn{border-color:rgba(150,230,90,.32);background:linear-gradient(180deg,rgba(142,198,63,.14),rgba(142,198,63,.03))}
+.btn{
+  appearance:none;border:none;cursor:pointer;width:100%;margin-top:16px;
+  padding:14px 22px;border-radius:14px;font-size:16px;font-weight:800;letter-spacing:.16em;
+  font-family:inherit;color:#2b1408;
+  background:linear-gradient(180deg,#ffe3a4 0%,var(--gold) 46%,#e0a02f 100%);
+  box-shadow:0 8px 22px rgba(242,197,97,.34),inset 0 1px 0 rgba(255,255,255,.66),inset 0 -2px 0 rgba(140,84,10,.34);
+  transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(242,197,97,.46),inset 0 1px 0 rgba(255,255,255,.7)}
+.btn:active{transform:translateY(1px) scale(.985)}
+.btn.ghost{
+  background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.02));
+  color:var(--ink);border:1px solid rgba(247,239,226,.2);
+  box-shadow:none;font-weight:700;font-size:14px;padding:12px 20px;margin-top:9px;
+}
+.btn.ghost:hover{background:rgba(242,197,97,.16);border-color:rgba(242,197,97,.45);box-shadow:none}
+.result{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:7px;margin-top:16px;
+}
+.rcell{
+  padding:9px 6px;border-radius:12px;
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.012));
+  border:1px solid rgba(255,255,255,.09);
+}
+.rcell .k{font-size:10px;letter-spacing:.14em;color:var(--ink-dim)}
+.rcell .v{font-size:clamp(17px,3.4vw,23px);font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums;color:var(--gold-soft)}
+.record{
+  display:none;margin-top:13px;padding:8px 14px;border-radius:99px;font-size:13px;font-weight:800;letter-spacing:.14em;
+  color:#3a1c05;background:linear-gradient(90deg,#ffe6ac,var(--gold),#ffcf6a);
+  box-shadow:0 0 26px rgba(242,197,97,.6);animation:pulse .9s ease infinite;
+}
+.record.show{display:inline-block}
+.hint{margin-top:13px;font-size:11px;line-height:1.7;color:rgba(247,239,226,.46);letter-spacing:.04em}
+kbd{
+  display:inline-block;padding:1px 6px;margin:0 1px;border-radius:5px;font-size:10.5px;font-family:inherit;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
+  border-bottom-width:2px;color:#e9dfcf;
+}
+
+/* SECTION: footer-help */
+.help{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;
+  margin-top:11px;font-size:11.5px;color:rgba(247,239,226,.5);letter-spacing:.05em;
+}
+.help span{display:flex;align-items:center;gap:5px;white-space:nowrap}
+
+@media (max-width:640px){
+  body{padding:8px 7px 14px}
+  .titlebar{padding-bottom:9px}
+  .brand-mark{width:38px;height:38px;flex-basis:38px;font-size:21px;border-radius:12px}
+  .brand-txt p{letter-spacing:.24em;font-size:10px}
+  .hud{gap:6px;padding:8px}
+  .stat{padding:5px 6px;border-radius:9px}
+  .stat .k{font-size:9px;letter-spacing:.1em}
+  .orders{padding:7px;gap:6px}
+  .orders-title{padding:0 8px 0 2px}
+  .orders-title b{font-size:12px}
+  .orders-title span{display:none}
+  .order{min-width:104px;padding:6px 8px;gap:7px}
+  .order .face{font-size:21px}
+  .order .row{font-size:17px}
+  .help{font-size:10.5px;gap:4px 11px}
+  .rules{grid-template-columns:1fr;margin-top:13px}
+}
+@media (max-height:560px) and (orientation:landscape){
+  .titlebar{padding-bottom:6px}
+  .brand-txt p{display:none}
+  .hud,.orders{margin-bottom:6px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SECTION: titlebar -->
+  <header class="titlebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">🍣</div>
+      <div class="brand-txt">
+        <h1>回转寿司大作战</h1>
+        <p>かいてんずし たいさくせん</p>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="icon-btn" id="btnSound" type="button" title="音效开关" aria-label="音效开关">🔊</button>
+      <button class="icon-btn" id="btnPause" type="button" title="暂停 (P)" aria-label="暂停">⏸</button>
+    </div>
+  </header>
+
+  <!-- SECTION: hud -->
+  <div class="hud" id="hud">
+    <div class="stat score"><div class="k">得分</div><div class="v" id="uiScore">0</div></div>
+    <div class="stat best"><div class="k">最高分</div><div class="v" id="uiBest">0</div></div>
+    <div class="stat level"><div class="k">等级</div><div class="v" id="uiLevel">1</div></div>
+    <div class="stat life"><div class="k">生命</div><div class="v" id="uiLife">❤❤❤</div></div>
+    <div class="stat combo" id="uiComboBox">
+      <div class="k">连击</div><div class="v" id="uiCombo">×1</div>
+      <div class="bar combo" id="uiComboBar"><i style="width:0%"></i></div>
+    </div>
+    <div class="stat ammo">
+      <div class="k">酱油</div><div class="v" id="uiAmmo">15</div>
+      <div class="bar ammo"><i id="uiAmmoBar" style="width:100%"></i></div>
+    </div>
+  </div>
+
+  <!-- SECTION: orders -->
+  <div class="orders">
+    <div class="orders-title"><b>顾客点单</b><span>ORDER</span></div>
+    <div class="order-list" id="uiOrders"></div>
+  </div>
+
+  <!-- SECTION: stage -->
+  <div class="stage" id="stage">
+    <canvas id="game"></canvas>
+    <div class="flash" id="flash"></div>
+    <div class="banner" id="banner"><b id="bannerTxt">等级提升</b><span id="bannerSub">LEVEL UP</span></div>
+
+    <!-- 开始界面 -->
+    <div class="overlay show" id="ovStart">
+      <div class="panel">
+        <div class="panel-art">🍣</div>
+        <h2>回转寿司大作战</h2>
+        <div class="kana">かいてんずし たいさくせん</div>
+        <p class="lead">你今晚是这家深夜居酒屋的酱油枪手。传送带上的寿司一圈圈转过，<br>吧台前的客人正在等他们的点单——瞄准、开火、上菜！</p>
+        <div class="rules">
+          <div class="rule"><i>🍣</i><span>击中寿司得分，<b>金盘</b>最值钱</span></div>
+          <div class="rule"><i>🧑</i><span>击中<b>客人点单</b>的寿司，送菜有大奖</span></div>
+          <div class="rule"><i>🍵</i><span>绿茶补<b>酱油弹药</b>，别打空了</span></div>
+          <div class="rule"><i>🔥</i><span>连续命中堆<b>连击倍率</b>，最高 ×8</span></div>
+          <div class="rule warn"><i>💀</i><span><b>芥末盘别打！</b>误中扣一条命</span></div>
+          <div class="rule warn"><i>⏳</i><span>客人等太久会<b>生气离席</b></span></div>
+        </div>
+        <button class="btn" id="btnStart" type="button" data-primary-action>开始营业</button>
+        <div class="hint">桌面端 <kbd>鼠标移动</kbd> 瞄准 · <kbd>点击</kbd> / <kbd>空格</kbd> 开火 · <kbd>P</kbd> 暂停<br>移动端 <kbd>按住拖动</kbd> 瞄准并自动开火</div>
+      </div>
+    </div>
+
+    <!-- 暂停界面 -->
+    <div class="overlay" id="ovPause">
+      <div class="panel">
+        <div class="panel-art">🍵</div>
+        <h2>休息一下</h2>
+        <div class="kana">きゅうけい</div>
+        <p class="lead">传送带已停下，客人们耐心等着。喝口茶再继续。</p>
+        <button class="btn" id="btnResume" type="button" data-primary-action>继续营业</button>
+        <button class="btn ghost" id="btnQuit" type="button">放弃本局</button>
+      </div>
+    </div>
+
+    <!-- 结算界面 -->
+    <div class="overlay" id="ovOver">
+      <div class="panel">
+        <div class="panel-art" id="overArt">🏮</div>
+        <h2 id="overTitle">打烊了</h2>
+        <div class="kana" id="overKana">ほんじつはしめい</div>
+        <div class="result">
+          <div class="rcell"><div class="k">本局得分</div><div class="v" id="rScore">0</div></div>
+          <div class="rcell"><div class="k">最高分</div><div class="v" id="rBest">0</div></div>
+          <div class="rcell"><div class="k">达到等级</div><div class="v" id="rLevel">1</div></div>
+          <div class="rcell"><div class="k">命中数</div><div class="v" id="rHits">0</div></div>
+          <div class="rcell"><div class="k">最大连击</div><div class="v" id="rCombo">0</div></div>
+          <div class="rcell"><div class="k">完成订单</div><div class="v" id="rOrders">0</div></div>
+        </div>
+        <div class="record" id="rRecord">🎉 新纪录！</div>
+        <button class="btn" id="btnAgain" type="button" data-primary-action>再来一局</button>
+        <div class="hint" id="rTip">提示：优先完成客人点单，奖励分远高于单打寿司。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: footer-help -->
+  <div class="help">
+    <span>🖱️ 移动瞄准</span><span>👆 点击 / 空格 开火</span><span>⏸ P 暂停</span>
+    <span>💀 芥末勿击</span><span>🍵 补酱油</span><span>🏮 深夜居酒屋 · 单机小游戏</span>
+  </div>
+</div>
+
+<script src="../assets/game-data.js"></script>
+<script src="../assets/game-scene.js"></script>
+<script src="../assets/game-core.js"></script>
+<script src="../assets/game.js"></script>
+</body>
+</html>
