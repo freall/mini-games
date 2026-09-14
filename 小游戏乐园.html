@@ -20,9 +20,12 @@ button{font-family:inherit}
 
 /* SECTION: view-shell
    三个视图共存于同一文档，未激活的用 display:none 隐藏（而非 visibility），
-   保证同一时刻只有一个视图参与布局与交互。 */
-.view{display:none;min-height:100%}
-.view.active{display:block}
+   保证同一时刻只有一个视图参与布局与交互。
+   注意：#viewPortal/#viewMatch3/#viewSushi 各自用 ID 选择器设了 display:flex，
+   ID 权重高于类，会盖掉 .view{display:none} 导致三视图同时显示并堆叠。
+   故此处用 !important 锁定显隐状态机：激活=flex，未激活=none。 */
+.view{display:none !important;min-height:100%}
+.view.active{display:flex !important}
 
 /* ============================================================
    SECTION: portal-styles · 门户首页
@@ -266,6 +269,13 @@ button{font-family:inherit}
 30%,50%,70%{transform:translate3d(-6px,2px,0)}40%,60%{transform:translate3d(6px,-1px,0)}}
 .m3-board{
   position:relative;width:100%;touch-action:none;
+  /* 8×8 等间距棋盘，高度恒等于宽度（CELL*8+GAP*9 == 可用宽度）。
+     关键：开局前 board 状态为 null，resize() 直接 return，.m3-board 高度会是 0，
+     .m3-boardwrap 随之塌成 22px，而开始/暂停/结算覆盖层是 inset:0 绝对定位在
+     boardwrap 里且被 overflow:hidden 裁剪 —— 结果「开始挑战」按钮完全不可见、
+     点不到。用 aspect-ratio 预留出正方形高度即可，开局后 JS 写入的行内高度
+     （596px）与之一致，不会产生布局跳动。 */
+  aspect-ratio:1/1;
   background:
     linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.008)),
     repeating-linear-gradient(90deg,rgba(255,255,255,.028) 0 1px,transparent 1px 12.5%),
