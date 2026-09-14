@@ -1,4 +1,4 @@
-/* 自动生成自 小游戏乐园.html · 请勿手改，改入口后重跑 build-pages.mjs */
+/* 自动生成自 小游戏乐园.html + games.config.mjs · 请勿手改，改入口后重跑 build-pages.mjs */
 /* SECTION: reset-vars */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -263,6 +263,13 @@ button{font-family:inherit}
 30%,50%,70%{transform:translate3d(-6px,2px,0)}40%,60%{transform:translate3d(6px,-1px,0)}}
 .m3-board{
   position:relative;width:100%;touch-action:none;
+  /* 8×8 等间距棋盘，高度恒等于宽度（CELL*8+GAP*9 == 可用宽度）。
+     关键：开局前 board 状态为 null，resize() 直接 return，.m3-board 高度会是 0，
+     .m3-boardwrap 随之塌成 22px，而开始/暂停/结算覆盖层是 inset:0 绝对定位在
+     boardwrap 里且被 overflow:hidden 裁剪 —— 结果「开始挑战」按钮完全不可见、
+     点不到。用 aspect-ratio 预留出正方形高度即可，开局后 JS 写入的行内高度
+     （596px）与之一致，不会产生布局跳动。 */
+  aspect-ratio:1/1;
   background:
     linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.008)),
     repeating-linear-gradient(90deg,rgba(255,255,255,.028) 0 1px,transparent 1px 12.5%),
