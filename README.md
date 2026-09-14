@@ -50,6 +50,7 @@
 | `node verify-site.mjs --selftest` | 注入 4 类缺陷，验证自检本身**真的会报警** |
 | `node publish.mjs` | 构建 + 推到 `gh-pages` + 触发 Pages 重建 |
 | `node publish.mjs --dry-run` | 只构建并打印将要发布的提交，不推送 |
+| `node publish.mjs --api` | 强制走 GitHub API 通道发布（git push 不通时用） |
 | `python tools/e2e-smoke.py` | 无头浏览器端到端冒烟（17 项断言：页面跳转 / 开局 / 拖拽换位 / 返回 / 控制台报错） |
 | `python tools/e2e-smoke.py --url https://freall.github.io/mini-games` | 同一套断言直接打线上 |
 
@@ -124,7 +125,14 @@ node build-pages.mjs && node verify-site.mjs && node publish.mjs
   `git add --work-tree=site -A -f .` + `git commit-tree` + `git update-ref` 造提交再推，
   所以 main 上的未提交改动不会被搅乱。`site/` 在 `.gitignore` 里（纯产物），
   但发布时会 `-f` 强制纳入。
-- Pages 重建需要约 30～60 秒，之后可访问线上地址确认。
+- **两条发布通道，自动降级**：本机 git push 走代理常报
+  `CONNECT tunnel failed, response 502` / `Error in the HTTP2 framing layer`（README 作者实测多次复现），
+  而 GitHub REST API 是通的。所以 `publish.mjs` 先试 git 通道，失败自动降级到 API 通道
+  （逐文件建 blob → 建 tree → 建 commit → 移动 ref，等价效果，且不带 `base_tree`
+  意味着远端就是 `site/` 的完整快照，源里删掉的页面不会残留）。想跳过 git 直接走 API 用 `--api`。
+- 比对基准取**远端**（`origin/gh-pages` / `FETCH_HEAD` / API 上的 ref），不只看本地分支：
+  本地引用可能领先（例如上一次 `--dry-run` 造过提交），只看本地会把该发的内容误判成"无需发布"。
+- Pages 重建需要约 30～60 秒；期间 CDN 可能还在发旧文件，验证时加个 `?cb=<时间戳>` 更准。
 
 ---
 
