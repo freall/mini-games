@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI图标消消乐 · 小游戏乐园</title>
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-game="match3" data-home="../">
+<div class="view active" id="viewMatch3">
+  <div class="m3-app">
+
+    <header class="m3-titlebar">
+      <button class="m3-home" type="button" data-back-home aria-label="返回小游戏乐园">← 乐园</button>
+      <div class="m3-brand">
+        <div class="m3-mark" aria-hidden="true">🧩</div>
+        <div>
+          <h1>AI图标消消乐</h1>
+          <p>AI ICON MATCH</p>
+        </div>
+      </div>
+      <button class="m3-icon-btn" id="m3BtnSound" type="button" title="音效开关 (M)" aria-label="音效开关">🔊</button>
+    </header>
+
+    <div class="m3-hud">
+      <div class="m3-stat score"><div class="k">本关得分</div><div class="v" id="m3Score">0</div></div>
+      <div class="m3-stat level"><div class="k">关卡</div><div class="v" id="m3Level">1</div></div>
+      <div class="m3-stat moves" id="m3MovesBox"><div class="k">剩余步数</div><div class="v" id="m3Moves">22</div></div>
+      <div class="m3-stat total"><div class="k">累计</div><div class="v" id="m3Total">0</div></div>
+      <div class="m3-stat best"><div class="k">最高分</div><div class="v" id="m3Best">0</div></div>
+    </div>
+
+    <div class="m3-goal">
+      <span class="lbl">目标</span>
+      <span class="txt" id="m3Target">800</span>
+      <div class="bar"><i id="m3Progress"></i></div>
+      <span class="txt" id="m3OverTitle">还差 800 分</span>
+    </div>
+
+    <div class="m3-boardwrap" id="m3BoardWrap">
+      <div class="m3-board" id="m3Board"></div>
+
+      <div class="m3-shuffle" id="m3ShuffleTip">无可消除组合 · 自动重排</div>
+
+      <!-- 开始界面 -->
+      <div class="m3-ov show" id="m3OvStart">
+        <div class="m3-panel">
+          <div class="m3-art" aria-hidden="true">🧩</div>
+          <h2>AI图标消消乐</h2>
+          <div class="m3-en">AI ICON MATCH</div>
+          <p class="m3-lead">棋盘上是十款主流 AI 工具的图标。<br>交换相邻两枚，凑成三连即可消除——在步数用尽前达成目标分。</p>
+          <div class="m3-rules">
+            <div class="m3-rule"><i>↔️</i><span>交换相邻图标，<b>三连</b>即消除</span></div>
+            <div class="m3-rule"><i>🔗</i><span>下落后自动<b>连锁</b>，倍率递增</span></div>
+            <div class="m3-rule"><i>➖</i><span><b>四连</b>生成直线清除图标</span></div>
+            <div class="m3-rule"><i>💥</i><span><b>五连</b>生成全色清除图标</span></div>
+            <div class="m3-rule"><i>👆</i><span>点击特殊图标<b>直接引爆</b></span></div>
+            <div class="m3-rule"><i>🔀</i><span>死局会<b>自动重排</b>，不卡关</span></div>
+          </div>
+          <button class="m3-btn" id="m3BtnStart" type="button" data-primary-action>开始挑战</button>
+          <button class="m3-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+          <div class="m3-hint">桌面端 <b>点击选中</b> 再点相邻图标，或直接 <b>拖动</b> 交换<br>移动端 <b>滑动</b> 交换 · <kbd>M</kbd> 音效 · <kbd>Esc</kbd> 返回乐园</div>
+        </div>
+      </div>
+
+      <!-- 通关界面 -->
+      <div class="m3-ov" id="m3OvLevel">
+        <div class="m3-panel">
+          <div class="m3-art" aria-hidden="true">🎉</div>
+          <h2>关卡通关</h2>
+          <div class="m3-en">LEVEL CLEAR</div>
+          <p class="m3-lead">目标分达成！下一关目标更高、步数更少。</p>
+          <button class="m3-btn" id="m3BtnLevelUp" type="button" data-primary-action>进入下一关</button>
+          <button class="m3-btn ghost" id="m3BtnQuit" type="button">结束本局</button>
+        </div>
+      </div>
+
+      <!-- 结算界面 -->
+      <div class="m3-ov" id="m3OvOver">
+        <div class="m3-panel">
+          <div class="m3-art" id="m3OvOverArt" aria-hidden="true">🧩</div>
+          <h2 id="m3OvOverTitle">步数用尽</h2>
+          <div class="m3-en">GAME OVER</div>
+          <div class="m3-result">
+            <div class="m3-rcell"><div class="k">到达关卡</div><div class="v" id="m3RLevel">1</div></div>
+            <div class="m3-rcell"><div class="k">本关得分</div><div class="v" id="m3RLevelScore">0</div></div>
+            <div class="m3-rcell"><div class="k">累计总分</div><div class="v" id="m3RTotal">0</div></div>
+            <div class="m3-rcell"><div class="k">最高分</div><div class="v" id="m3RBest">0</div></div>
+          </div>
+          <div class="m3-record" id="m3RRecord">🎉 新纪录！</div>
+          <button class="m3-btn" id="m3BtnRetry" type="button" data-primary-action>再来一局</button>
+          <button class="m3-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+          <div class="m3-hint" id="m3RTip">提示：四连生成横向清除，五连生成全色清除。</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="m3-help">
+      <span>↔️ 交换相邻图标</span><span>🔗 连锁倍率</span><span>💥 特殊图标</span>
+      <span><button type="button" data-back-home>返回小游戏乐园</button></span>
+    </div>
+
+  </div>
+</div>
+<script src="../assets/match3-data.js"></script>
+<script src="../assets/match3-core.js"></script>
+<script src="../assets/match3.js"></script>
+<script src="../assets/boot.js"></script>
+</body>
+</html>

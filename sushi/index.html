@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>回转寿司大作战 · 小游戏乐园</title>
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-game="sushi" data-home="../">
+<div class="view active" id="viewSushi">
+
+
+<div class="sushi-app">
+
+  <!-- SECTION: sushi-titlebar -->
+  <header class="titlebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">🍣</div>
+      <div class="brand-txt">
+        <h1>回转寿司大作战</h1>
+        <p>かいてんずし たいさくせん</p>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="home-btn" id="btnHome" type="button" data-back-home aria-label="返回小游戏乐园">← 乐园</button>
+      <button class="icon-btn" id="btnSound" type="button" title="音效开关 (M)" aria-label="音效开关">🔊</button>
+      <button class="icon-btn" id="btnPause" type="button" title="暂停 (P)" aria-label="暂停">⏸</button>
+    </div>
+  </header>
+
+  <!-- SECTION: sushi-hud -->
+  <div class="hud" id="hud">
+    <div class="stat score"><div class="k">得分</div><div class="v" id="uiScore">0</div></div>
+    <div class="stat best"><div class="k">最高分</div><div class="v" id="uiBest">0</div></div>
+    <div class="stat level"><div class="k">等级</div><div class="v" id="uiLevel">1</div></div>
+    <div class="stat life"><div class="k">生命</div><div class="v" id="uiLife">❤❤❤</div></div>
+    <div class="stat combo" id="uiComboBox">
+      <div class="k">连击</div><div class="v" id="uiCombo">×1</div>
+      <div class="bar combo" id="uiComboBar"><i style="width:0%"></i></div>
+    </div>
+    <div class="stat ammo">
+      <div class="k">酱油</div><div class="v" id="uiAmmo">15</div>
+      <div class="bar ammo"><i id="uiAmmoBar" style="width:100%"></i></div>
+    </div>
+  </div>
+
+  <!-- SECTION: sushi-orders -->
+  <div class="orders">
+    <div class="orders-title"><b>顾客点单</b><span>ORDER</span></div>
+    <div class="order-list" id="uiOrders"></div>
+  </div>
+
+  <!-- SECTION: sushi-stage -->
+  <div class="stage" id="stage">
+    <canvas id="game"></canvas>
+    <div class="flash" id="flash"></div>
+    <div class="banner" id="banner"><b id="bannerTxt">等级提升</b><span id="bannerSub">LEVEL UP</span></div>
+
+    <!-- 开始界面 -->
+    <div class="overlay show" id="ovStart">
+      <div class="panel">
+        <div class="panel-art" aria-hidden="true">🍣</div>
+        <h2>回转寿司大作战</h2>
+        <div class="kana">かいてんずし たいさくせん</div>
+        <p class="lead">你今晚是这家深夜居酒屋的酱油枪手。传送带上的寿司一圈圈转过，<br>吧台前的客人正在等他们的点单——瞄准、开火、上菜！</p>
+        <div class="rules">
+          <div class="rule"><i>🍣</i><span>击中寿司得分，<b>金盘</b>最值钱</span></div>
+          <div class="rule"><i>🧑</i><span>击中<b>客人点单</b>的寿司，送菜有大奖</span></div>
+          <div class="rule"><i>🍵</i><span>绿茶补<b>酱油弹药</b>，别打空了</span></div>
+          <div class="rule"><i>🔥</i><span>连续命中堆<b>连击倍率</b>，最高 ×8</span></div>
+          <div class="rule warn"><i>💀</i><span><b>芥末盘别打！</b>误中扣一条命</span></div>
+          <div class="rule warn"><i>⏳</i><span>客人等太久会<b>生气离席</b></span></div>
+        </div>
+        <button class="btn" id="btnStart" type="button" data-primary-action>开始营业</button>
+        <button class="btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+        <div class="hint">桌面端 <kbd>鼠标移动</kbd> 瞄准 · <kbd>点击</kbd> / <kbd>空格</kbd> 开火 · <kbd>P</kbd> 暂停<br>移动端 <kbd>按住拖动</kbd> 瞄准并自动开火</div>
+      </div>
+    </div>
+
+    <!-- 暂停界面 -->
+    <div class="overlay" id="ovPause">
+      <div class="panel">
+        <div class="panel-art" aria-hidden="true">🍵</div>
+        <h2>休息一下</h2>
+        <div class="kana">きゅうけい</div>
+        <p class="lead">传送带已停下，客人们耐心等着。喝口茶再继续。</p>
+        <button class="btn" id="btnResume" type="button" data-primary-action>继续营业</button>
+        <button class="btn ghost" id="btnQuit" type="button">放弃本局</button>
+        <button class="btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+      </div>
+    </div>
+
+    <!-- 结算界面 -->
+    <div class="overlay" id="ovOver">
+      <div class="panel">
+        <div class="panel-art" id="overArt" aria-hidden="true">🏮</div>
+        <h2 id="overTitle">打烊了</h2>
+        <div class="kana" id="overKana">ほんじつはしめい</div>
+        <div class="result">
+          <div class="rcell"><div class="k">本局得分</div><div class="v" id="rScore">0</div></div>
+          <div class="rcell"><div class="k">最高分</div><div class="v" id="rBest">0</div></div>
+          <div class="rcell"><div class="k">达到等级</div><div class="v" id="rLevel">1</div></div>
+          <div class="rcell"><div class="k">命中数</div><div class="v" id="rHits">0</div></div>
+          <div class="rcell"><div class="k">最大连击</div><div class="v" id="rCombo">0</div></div>
+          <div class="rcell"><div class="k">完成订单</div><div class="v" id="rOrders">0</div></div>
+        </div>
+        <div class="record" id="rRecord">🎉 新纪录！</div>
+        <button class="btn" id="btnAgain" type="button" data-primary-action>再来一局</button>
+        <button class="btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+        <div class="hint" id="rTip">提示：优先完成客人点单，奖励分远高于单打寿司。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: sushi-footer -->
+  <div class="help">
+    <span>🖱️ 移动瞄准</span><span>👆 点击 / 空格 开火</span><span>⏸ P 暂停</span>
+    <span>💀 芥末勿击</span><span>🍵 补酱油</span>
+    <span><button type="button" data-back-home>返回小游戏乐园</button></span>
+  </div>
+</div>
+</div>
+<script src="../assets/game-data.js"></script>
+<script src="../assets/game-scene.js"></script>
+<script src="../assets/game-core.js"></script>
+<script src="../assets/game.js"></script>
+<script src="../assets/boot.js"></script>
+</body>
+</html>
