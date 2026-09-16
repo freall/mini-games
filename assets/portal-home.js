@@ -28,8 +28,20 @@
     setTxt('ptSushiBest', sushiBest > 0 ? sushiBest.toLocaleString('zh-CN') : '—');
     setTxt('ptM3Best', m3Best > 0 ? m3Best.toLocaleString('zh-CN') : '—');
     setTxt('ptM3Level', m3Level > 1 ? '第 ' + m3Level + ' 关' : '未通关');
+
+    /* 摩尔斯：最高分 + 已掌握字符数（熟练度 ≥6 算掌握） */
+    var morseBest = readStore('morse-best', 0);
+    setTxt('ptMorseBest', morseBest > 0 ? morseBest.toLocaleString('zh-CN') : '—');
+    var mastered = 0;
+    try {
+      var m = JSON.parse(window.localStorage.getItem('morse-mastery') || '{}') || {};
+      var total = (window.MORSE_DATA && window.MORSE_DATA.CHARS.length) || 36;
+      for (var k in m) { if (Object.prototype.hasOwnProperty.call(m, k) && (m[k] | 0) >= 6) { mastered++; } }
+      setTxt('ptMorseMastery', mastered > 0 ? mastered + ' / ' + total : '—');
+    } catch (e) { setTxt('ptMorseMastery', '—'); }
+
     var badge = document.getElementById('ptRecordBadge');
-    if (badge) { badge.classList.toggle('show', sushiBest > 0 || m3Best > 0); }
+    if (badge) { badge.classList.toggle('show', sushiBest > 0 || m3Best > 0 || morseBest > 0); }
   }
 
   /* SECTION: cover · 消消乐封面，用与棋盘一致的图标素材
