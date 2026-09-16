@@ -1371,6 +1371,20 @@ button{font-family:inherit}
 .mr-bestline{margin-top:9px;font-size:11.5px;letter-spacing:.08em;color:var(--m-dim)}
 .mr-bestline b{color:var(--m-amber);font-variant-numeric:tabular-nums}
 
+/* 暂停面板里的码表速查（学习用；放在按钮之后，别把主按钮挤下去） */
+.mr-ref{margin-top:16px;padding-top:12px;border-top:1px dashed rgba(92,255,168,.18)}
+.mr-ref-title{font-size:11px;letter-spacing:.14em;color:var(--m-dim)}
+.mr-ref-grid{
+  margin-top:9px;display:grid;grid-template-columns:repeat(6,1fr);gap:5px;text-align:center;
+}
+.mr-ref-grid span{
+  padding:5px 2px;border-radius:8px;font-size:11.5px;letter-spacing:1px;color:var(--m-amber);
+  background:rgba(92,255,168,.06);border:1px solid rgba(92,255,168,.12);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.mr-ref-grid b{color:var(--m-green);margin-right:3px}
+.mr-ref-note{margin-top:9px;font-size:10.5px;line-height:1.7;color:var(--m-dim)}
+
 .mr-help{
   display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;
   margin-top:14px;font-size:11px;color:var(--m-dim);
@@ -1499,6 +1513,24 @@ button{font-family:inherit}
         <button class="mr-btn" id="morseBtnResume" type="button" data-primary-action>继续值班</button>
         <button class="mr-btn ghost" id="morseBtnQuit" type="button">结束本局</button>
         <button class="mr-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+        <div class="mr-ref">
+          <div class="mr-ref-title">码表速查 · 停下来看看不丢人</div>
+          <div class="mr-ref-grid">
+            <span><b>A</b>·—</span><span><b>B</b>—···</span><span><b>C</b>—·—·</span>
+            <span><b>D</b>—··</span><span><b>E</b>·</span><span><b>F</b>··—·</span>
+            <span><b>G</b>——·</span><span><b>H</b>····</span><span><b>I</b>··</span>
+            <span><b>J</b>·———</span><span><b>K</b>—·—</span><span><b>L</b>·—··</span>
+            <span><b>M</b>——</span><span><b>N</b>—·</span><span><b>O</b>———</span>
+            <span><b>P</b>·——·</span><span><b>Q</b>——·—</span><span><b>R</b>·—·</span>
+            <span><b>S</b>···</span><span><b>T</b>—</span><span><b>U</b>··—</span>
+            <span><b>V</b>···—</span><span><b>W</b>·——</span><span><b>X</b>—··—</span>
+            <span><b>Y</b>—·——</span><span><b>Z</b>——··</span><span><b>0</b>—————</span>
+            <span><b>1</b>·————</span><span><b>2</b>··———</span><span><b>3</b>···——</span>
+            <span><b>4</b>····—</span><span><b>5</b>·····</span><span><b>6</b>—····</span>
+            <span><b>7</b>——···</span><span><b>8</b>———··</span><span><b>9</b>————·</span>
+          </div>
+          <div class="mr-ref-note">口诀：数字是「n 个点补划到 5 位」，6~9 反过来划在前；SOS = ··· ——— ···</div>
+        </div>
       </div>
     </div>
 
