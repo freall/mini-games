@@ -36,9 +36,11 @@ function ensureDir(p) { mkdirSync(p, { recursive: true }); }
 
 /* 页面骨架：脚本/CSS 一律按「相对 site/ 根」的路径传进来，
    子目录页面自动补 ../ 前缀 */
-function page({ title, cssRel, dir, bodyAttrs, viewMarkup, scripts }) {
+function page({ title, cssRel, dir, bodyAttrs, app, viewMarkup, scripts }) {
   const up = dir ? '../' : '';
   const tags = scripts.map(s => `<script src="${up}${s}"></script>`).join('\n');
+  /* data-app 由构建脚本从配置注入，boot.js 靠它决定挂哪个游戏模块 */
+  const appAttr = app ? ` data-app="${app}"` : '';
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -47,7 +49,7 @@ function page({ title, cssRel, dir, bodyAttrs, viewMarkup, scripts }) {
 <title>${title}</title>
 <link rel="stylesheet" href="${up}${cssRel}">
 </head>
-<body${bodyAttrs}>
+<body${appAttr}${bodyAttrs}>
 ${viewMarkup.trim()}
 ${tags}
 </body>
@@ -127,6 +129,7 @@ export function build() {
       title: p.title,
       cssRel: CSS_OUT,
       dir: p.dir,
+      app: p.app,
       bodyAttrs: p.bodyAttrs,
       viewMarkup: markup,
       scripts: p.scripts

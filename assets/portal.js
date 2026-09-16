@@ -8,17 +8,19 @@ window.APP_ROUTER = (function () {
   var VIEW_IDS = {
     portal: 'viewPortal',
     sushi: 'viewSushi',
-    match3: 'viewMatch3'
+    match3: 'viewMatch3',
+    morse: 'viewMorse'
   };
 
   /* 视图 → 对应应用模块（门户自身无模块） */
   var APPS = {
     sushi: function () { return window.SUSHI_APP; },
-    match3: function () { return window.MATCH3_APP; }
+    match3: function () { return window.MATCH3_APP; },
+    morse: function () { return window.MORSE_APP; }
   };
 
   var current = 'portal';
-  var mounted = { sushi: false, match3: false };
+  var mounted = { sushi: false, match3: false, morse: false };
 
   function $(id) { return document.getElementById(id); }
 
@@ -40,8 +42,18 @@ window.APP_ROUTER = (function () {
     setTxt('ptSushiBest', sushiBest > 0 ? sushiBest.toLocaleString('zh-CN') : '—');
     setTxt('ptM3Best', m3Best > 0 ? m3Best.toLocaleString('zh-CN') : '—');
     setTxt('ptM3Level', m3Level > 1 ? '第 ' + m3Level + ' 关' : '未通关');
+    /* 摩尔斯：最高分 + 已掌握字符数（熟练度 ≥6 算掌握，长期累计） */
+    var morseBest = readStore('morse-best', 0);
+    var mastered = 0;
+    try {
+      var m = JSON.parse(window.localStorage.getItem('morse-mastery') || '{}') || {};
+      var total = (window.MORSE_DATA && window.MORSE_DATA.CHARS.length) || 36;
+      for (var k in m) { if (m.hasOwnProperty(k) && (m[k] | 0) >= 6) { mastered++; } }
+      setTxt('ptMorseMastery', mastered > 0 ? mastered + ' / ' + total : '—');
+    } catch (e) { setTxt('ptMorseMastery', '—'); }
+    setTxt('ptMorseBest', morseBest > 0 ? morseBest.toLocaleString('zh-CN') : '—');
     var badge = $('ptRecordBadge');
-    if (badge) { badge.classList.toggle('show', sushiBest > 0 || m3Best > 0); }
+    if (badge) { badge.classList.toggle('show', sushiBest > 0 || m3Best > 0 || morseBest > 0); }
   }
 
   function setTxt(id, txt) {

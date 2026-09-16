@@ -135,6 +135,19 @@ button{font-family:inherit}
 .pt-cover-badge{font-size:clamp(11px,2.4vw,15px);font-weight:800;color:#fff;letter-spacing:.02em;text-shadow:0 1px 4px rgba(0,0,0,.55)}
 .pt-cover-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 
+/* 摩尔斯卡片：封面直接用 SOS 的点划图形 */
+.pt-code{
+  position:relative;z-index:1;margin-top:15px;
+  display:flex;align-items:center;justify-content:center;gap:13px;
+  padding:15px 9px;border-radius:16px;
+  background:linear-gradient(180deg,rgba(6,14,12,.72),rgba(6,14,12,.44));
+  border:1px solid rgba(92,255,168,.18);
+}
+.pt-code i{display:block;background:#5cffa8;box-shadow:0 0 9px rgba(92,255,168,.45)}
+.pt-code i.dot{width:10px;height:10px;border-radius:50%}
+.pt-code i.dash{width:32px;height:10px;border-radius:4px}
+.pt-code u{width:8px;text-decoration:none}
+
 .pt-foot{
   position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;
   gap:12px;margin-top:16px;padding-top:14px;
@@ -532,10 +545,48 @@ button{font-family:inherit}
         </div>
       </div>
 
+      <!-- 卡片：深夜电台 · 摩尔斯电码 -->
+      <div class="pt-card" data-goto="morse" role="button" tabindex="0"
+           style="--art-1:#5cffa8;--art-2:#0d5f3d;--card-glow:rgba(92,255,168,.24)"
+           aria-label="进入游戏：深夜电台 摩尔斯电码">
+        <div class="pt-top">
+          <div class="pt-art" aria-hidden="true">📡</div>
+          <div class="pt-name">
+            <h2>深夜电台 · 摩尔斯电码</h2>
+            <div class="pt-sub">MORSE RADIO</div>
+          </div>
+        </div>
+        <p class="pt-desc">你是值班报务员。用电键把电文一字一字发出去 —— 短按出点、按住出划，松手停顿就算一个字发完。答错的字符电台会记下来，后面还会再考你。</p>
+        <div class="pt-code" aria-hidden="true">
+          <i class="dot"></i><i class="dot"></i><i class="dot"></i>
+          <u></u>
+          <i class="dash"></i><i class="dash"></i><i class="dash"></i>
+          <u></u>
+          <i class="dot"></i><i class="dot"></i><i class="dot"></i>
+        </div>
+        <div class="pt-tags">
+          <span class="pt-tag">电键手感</span>
+          <span class="pt-tag">逐组解锁</span>
+          <span class="pt-tag">错字重考</span>
+          <span class="pt-tag">电报音</span>
+        </div>
+        <div class="pt-foot">
+          <div class="pt-stat">
+            <div class="k">最高分</div>
+            <div class="v" id="ptMorseBest">—</div>
+          </div>
+          <div class="pt-stat">
+            <div class="k">已掌握</div>
+            <div class="v dim" id="ptMorseMastery">—</div>
+          </div>
+          <div class="pt-play" data-primary-action>开始游戏 <span aria-hidden="true">→</span></div>
+        </div>
+      </div>
+
     </div>
 
     <p class="pt-note">
-      两款游戏都在浏览器本地运行，最高分与关卡进度保存在当前浏览器。<br>
+      三款游戏都在浏览器本地运行，最高分、关卡进度与掌握度保存在当前浏览器。<br>
       桌面端支持鼠标与键盘，移动端支持触控操作。
     </p>
 
@@ -1061,6 +1112,431 @@ button{font-family:inherit}
 </div>
 </div>
 
+<!-- SECTION: view-morse -->
+<div class="view" id="viewMorse">
+<style>
+/* SECTION: morse-styles · 深夜电台（作用域限定 #viewMorse，不外泄）
+   视觉基调：值班室的暗夜色 + 磷光绿示波器 + 琥珀电键灯 */
+#viewMorse{
+  --m-bg:#070d12;
+  --m-panel:#0d1720;
+  --m-line:rgba(120,255,190,.16);
+  --m-green:#5cffa8;
+  --m-green-dim:#2f8f5f;
+  --m-amber:#ffc061;
+  --m-ink:#dff7ea;
+  --m-dim:#8aa79b;
+  background:
+    radial-gradient(900px 520px at 50% -10%, rgba(60,255,170,.10), transparent 62%),
+    radial-gradient(700px 420px at 90% 108%, rgba(255,170,80,.08), transparent 62%),
+    linear-gradient(168deg,#0d1620 0%,var(--m-bg) 52%,#04070a 100%);
+  color:var(--m-ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,sans-serif;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:14px 12px 22px;overflow-x:hidden;position:relative;
+}
+#viewMorse::before{        /* 值班室的扫描线质感 */
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(0deg,rgba(120,255,190,.028) 0 1px,transparent 1px 3px);
+  -webkit-mask-image:radial-gradient(72% 64% at 50% 42%,#000,transparent 100%);
+  mask-image:radial-gradient(72% 64% at 50% 42%,#000,transparent 100%);
+}
+.mr-app{position:relative;z-index:1;width:100%;max-width:720px}
+
+/* SECTION: morse-titlebar */
+.mr-titlebar{display:flex;align-items:center;gap:12px;padding:2px 2px 12px;flex-wrap:wrap}
+.mr-home{
+  flex:0 0 auto;padding:9px 14px;border-radius:11px;cursor:pointer;
+  font-size:13px;font-weight:700;letter-spacing:.06em;
+  color:var(--m-green);background:rgba(92,255,168,.08);
+  border:1px solid var(--m-line);
+}
+.mr-home:hover{background:rgba(92,255,168,.16)}
+.mr-brand{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 auto}
+.mr-mark{
+  width:46px;height:46px;flex:0 0 46px;border-radius:14px;display:grid;place-items:center;
+  font-size:24px;line-height:1;
+  background:linear-gradient(150deg,#12433a,#06201c);
+  border:1px solid rgba(92,255,168,.4);
+  box-shadow:0 6px 18px rgba(30,255,150,.18),inset 0 1px 0 rgba(255,255,255,.16);
+}
+.mr-brand h1{
+  font-size:clamp(17px,3.2vw,23px);font-weight:800;letter-spacing:.04em;line-height:1.2;
+  background:linear-gradient(180deg,#eafff4 10%,var(--m-green) 88%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.mr-brand p{font-size:10.5px;letter-spacing:.24em;color:var(--m-dim);margin-top:3px}
+.mr-tools{display:flex;gap:8px;align-items:center}
+.mr-icon-btn{
+  width:40px;height:40px;border-radius:12px;cursor:pointer;font-size:16px;
+  display:grid;place-items:center;color:var(--m-ink);
+  background:linear-gradient(180deg,rgba(223,247,234,.09),rgba(223,247,234,.02));
+  border:1px solid rgba(223,247,234,.16);
+  transition:transform .16s ease,background .2s ease;
+}
+.mr-icon-btn:hover{transform:translateY(-2px);background:rgba(92,255,168,.16)}
+
+/* SECTION: morse-hud */
+.mr-hud{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:12px}
+.mr-stat{
+  padding:9px 10px;border-radius:13px;
+  background:linear-gradient(180deg,rgba(92,255,168,.07),rgba(92,255,168,.015));
+  border:1px solid var(--m-line);
+}
+.mr-stat .k{font-size:9.5px;letter-spacing:.14em;color:var(--m-dim)}
+.mr-stat .v{
+  margin-top:3px;font-size:clamp(15px,2.6vw,19px);font-weight:800;
+  font-variant-numeric:tabular-nums;color:var(--m-green);
+  text-shadow:0 0 12px rgba(92,255,168,.4);
+}
+.mr-stat.signal .v{color:var(--m-amber);text-shadow:0 0 12px rgba(255,192,97,.36)}
+.mr-bar{height:4px;border-radius:99px;margin-top:5px;background:rgba(255,255,255,.1);overflow:hidden}
+.mr-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--m-green-dim),var(--m-green));transition:width .25s ease}
+.mr-stat.signal .mr-bar i{background:linear-gradient(90deg,#8a5a1e,var(--m-amber))}
+
+/* SECTION: morse-board */
+.mr-board{
+  position:relative;padding:16px 16px 14px;border-radius:20px;
+  background:linear-gradient(180deg,rgba(9,20,26,.92),rgba(4,9,12,.92));
+  border:1px solid rgba(92,255,168,.18);
+  box-shadow:0 16px 44px rgba(0,0,0,.55),inset 0 0 60px rgba(0,0,0,.5);
+}
+.mr-msgbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mr-msgbar .lbl{font-size:10px;letter-spacing:.2em;color:var(--m-dim)}
+.mr-word{display:flex;gap:8px;flex:1 1 auto;flex-wrap:wrap}
+.mr-char{
+  min-width:40px;padding:6px 10px;border-radius:10px;text-align:center;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:clamp(20px,4.4vw,28px);font-weight:700;line-height:1.1;
+  color:rgba(223,247,234,.34);
+  background:rgba(255,255,255,.03);border:1px dashed rgba(223,247,234,.14);
+}
+.mr-char.done{color:var(--m-green-dim);border-style:solid;border-color:rgba(92,255,168,.22);background:rgba(92,255,168,.06)}
+.mr-char.cur{
+  color:#04120c;border-style:solid;border-color:var(--m-green);
+  background:linear-gradient(180deg,#b6ffd8,var(--m-green));
+  box-shadow:0 0 0 3px rgba(92,255,168,.16),0 0 22px rgba(92,255,168,.4);
+  animation:mrpulse 1.6s ease-in-out infinite;
+}
+@keyframes mrpulse{0%,100%{box-shadow:0 0 0 3px rgba(92,255,168,.14),0 0 18px rgba(92,255,168,.32)}
+  50%{box-shadow:0 0 0 5px rgba(92,255,168,.2),0 0 26px rgba(92,255,168,.5)}}
+.mr-msgbar .no{font-size:11px;color:var(--m-dim);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.mr-pace{height:3px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;margin:10px 0 12px}
+.mr-pace i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--m-green-dim),var(--m-green))}
+.mr-pace i.slow{background:linear-gradient(90deg,#c2542a,#ff8a4c)}
+
+/* 示波器条：信号灯 + 刚敲出的码 */
+.mr-scope{
+  display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 12px;
+  border-radius:14px;background:rgba(2,8,6,.72);border:1px solid rgba(92,255,168,.12);
+}
+.mr-lamp{
+  flex:0 0 18px;width:18px;height:18px;border-radius:50%;
+  background:#122019;border:1px solid rgba(92,255,168,.3);
+  transition:background .08s linear,box-shadow .08s linear;
+}
+.mr-lamp.on{background:var(--m-green);box-shadow:0 0 16px 4px rgba(92,255,168,.6)}
+.mr-buffer{display:flex;align-items:center;gap:7px;flex:1 1 auto;min-height:24px;flex-wrap:wrap}
+.mr-buffer.empty::after{content:"（按住电键开始发报）";font-size:12px;color:var(--m-dim)}
+.mr-buffer i{display:block;background:var(--m-green);box-shadow:0 0 10px rgba(92,255,168,.5)}
+.mr-buffer i.dot{width:11px;height:11px;border-radius:50%}
+.mr-buffer i.dash{width:34px;height:11px;border-radius:4px}
+.mr-status{flex:0 0 auto;font-size:11px;letter-spacing:.1em;color:var(--m-dim)}
+
+/* SECTION: morse-key · 电键主体 */
+.mr-keyrow{display:flex;gap:16px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.mr-key{
+  position:relative;flex:0 0 auto;width:168px;height:168px;border-radius:50%;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  color:#1b1005;touch-action:none;user-select:none;-webkit-user-select:none;
+  background:
+    radial-gradient(circle at 50% 32%, #ffe6b0 0%, #f2b95f 42%, #b97e2c 78%, #8a5a1c 100%);
+  border:2px solid rgba(255,232,180,.6);
+  box-shadow:0 14px 30px rgba(0,0,0,.5),inset 0 -6px 14px rgba(0,0,0,.25),inset 0 4px 10px rgba(255,255,255,.4);
+  transition:transform .09s ease,box-shadow .12s ease;
+}
+.mr-key .ring{
+  position:absolute;inset:12px;border-radius:50%;
+  border:2px dashed rgba(90,50,10,.34);pointer-events:none;
+}
+.mr-key .mr-key-txt{font-size:17px;font-weight:800;letter-spacing:.08em}
+.mr-key .mr-key-sub{font-size:10.5px;letter-spacing:.04em;color:rgba(40,22,4,.72)}
+.mr-key:hover{transform:translateY(-2px)}
+.mr-key.down,.mr-key:active{
+  transform:translateY(3px) scale(.97);
+  box-shadow:0 4px 12px rgba(0,0,0,.5),inset 0 -2px 8px rgba(0,0,0,.3),inset 0 3px 10px rgba(255,255,255,.3);
+}
+.mr-key.down .ring{border-color:rgba(255,255,255,.55)}
+.mr-side{flex:1 1 210px;display:flex;flex-direction:column;gap:9px;min-width:190px}
+.mr-aux{
+  padding:11px 14px;border-radius:12px;cursor:pointer;text-align:left;
+  font-size:13.5px;font-weight:700;letter-spacing:.04em;color:var(--m-ink);
+  background:linear-gradient(180deg,rgba(92,255,168,.11),rgba(92,255,168,.02));
+  border:1px solid var(--m-line);
+  transition:transform .16s ease,background .2s ease;
+}
+.mr-aux:hover{transform:translateY(-2px);background:rgba(92,255,168,.18)}
+.mr-aux:active{transform:translateY(0) scale(.98)}
+.mr-mastery{
+  padding:10px 12px;border-radius:12px;
+  background:linear-gradient(180deg,rgba(255,192,97,.08),rgba(255,192,97,.02));
+  border:1px solid rgba(255,192,97,.2);
+}
+.mr-mastery .k{font-size:9.5px;letter-spacing:.16em;color:var(--m-dim)}
+.mr-mastery .v{margin-top:3px;font-size:17px;font-weight:800;color:var(--m-amber);font-variant-numeric:tabular-nums}
+.mr-mastery .mr-bar i{background:linear-gradient(90deg,#8a5a1e,var(--m-amber))}
+
+.mr-tip{
+  margin-top:13px;padding:11px 13px;border-radius:12px;min-height:46px;
+  font-size:12.5px;line-height:1.7;color:rgba(223,247,234,.8);
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);
+}
+.mr-tip.ok{border-color:rgba(92,255,168,.3);background:rgba(92,255,168,.07);color:#c8ffe2}
+.mr-tip.warn{border-color:rgba(255,140,90,.36);background:rgba(255,120,80,.09);color:#ffd8c4}
+.mr-newchars{margin-top:9px;font-size:11px;letter-spacing:.05em;color:var(--m-dim)}
+
+.mr-toast{
+  position:absolute;left:50%;bottom:14px;transform:translate(-50%,10px);
+  padding:8px 16px;border-radius:99px;font-size:13px;font-weight:700;white-space:nowrap;
+  color:#04120c;background:linear-gradient(180deg,#b6ffd8,var(--m-green));
+  box-shadow:0 8px 22px rgba(92,255,168,.36);
+  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;
+}
+.mr-toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* SECTION: morse-overlays
+   覆盖层用 position:fixed 铺满视口，而不是绝对定位贴在 .mr-board 里 ——
+   面板内容（码表 + 规则 + 按钮）比棋盘高，贴容器定位会被容器高度裁掉，
+   "开始值班"按钮就跑到可视区外、点不到了（消消乐当初踩过同一类坑）。 */
+.mr-ov{
+  position:fixed;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;
+  padding:20px 14px;text-align:center;
+  background:radial-gradient(circle at 50% 30%,rgba(10,40,32,.94),rgba(3,7,9,.96) 72%);
+  backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+  opacity:0;visibility:hidden;transition:opacity .26s ease,visibility .26s;
+}
+.mr-ov.show{opacity:1;visibility:visible}
+.mr-panel{width:100%;max-width:470px;max-height:calc(100vh - 40px);overflow-y:auto;padding:4px}
+.mr-art{font-size:44px;line-height:1}
+.mr-panel h2{margin-top:10px;font-size:clamp(19px,3.6vw,24px);font-weight:800;letter-spacing:.05em;color:#eafff4}
+.mr-en{margin-top:5px;font-size:10.5px;letter-spacing:.32em;color:var(--m-dim)}
+.mr-lead{margin-top:12px;font-size:12.5px;line-height:1.85;color:rgba(223,247,234,.78)}
+.mr-codebook{
+  margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+  padding:10px;border-radius:13px;background:rgba(2,8,6,.6);border:1px solid var(--m-line);
+}
+.mr-codebook div{
+  display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:9px;
+  background:rgba(92,255,168,.06);
+}
+.mr-codebook b{font-size:15px;color:var(--m-green)}
+.mr-codebook span{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:12px;letter-spacing:2px;color:var(--m-amber);
+}
+.mr-rules{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:7px;text-align:left}
+.mr-rule{
+  display:flex;gap:7px;align-items:flex-start;padding:8px 10px;border-radius:11px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  font-size:11.5px;line-height:1.6;color:rgba(223,247,234,.82);
+}
+.mr-rule i{font-style:normal;flex:0 0 auto}
+.mr-rule b{color:var(--m-green)}
+.mr-btn{
+  display:block;width:100%;margin-top:11px;padding:13px 18px;border-radius:13px;cursor:pointer;
+  font-size:15px;font-weight:800;letter-spacing:.12em;color:#04120c;
+  background:linear-gradient(180deg,#b6ffd8 0%,var(--m-green) 52%,#2fbf78 100%);
+  border:1px solid rgba(210,255,232,.5);
+  box-shadow:0 10px 24px rgba(92,255,168,.26),inset 0 1px 0 rgba(255,255,255,.6);
+}
+.mr-btn:hover{transform:translateY(-1px)}
+.mr-btn.ghost{
+  color:var(--m-green);background:rgba(92,255,168,.08);
+  border:1px solid var(--m-line);box-shadow:none;
+}
+.mr-hint{margin-top:11px;font-size:11px;line-height:1.8;color:var(--m-dim)}
+.mr-hint kbd{
+  padding:1px 5px;border-radius:5px;font-family:inherit;font-size:10.5px;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);
+}
+.mr-result{margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.mr-rcell{padding:9px 6px;border-radius:11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.mr-rcell .k{font-size:9.5px;letter-spacing:.12em;color:var(--m-dim)}
+.mr-rcell .v{margin-top:3px;font-size:17px;font-weight:800;color:var(--m-green);font-variant-numeric:tabular-nums}
+.mr-record{
+  display:none;margin-top:11px;padding:7px 14px;border-radius:99px;font-size:12.5px;font-weight:700;
+  color:#3a2405;background:linear-gradient(180deg,#ffe6b0,var(--m-amber));
+}
+.mr-record.show{display:inline-block}
+.mr-bestline{margin-top:9px;font-size:11.5px;letter-spacing:.08em;color:var(--m-dim)}
+.mr-bestline b{color:var(--m-amber);font-variant-numeric:tabular-nums}
+
+.mr-help{
+  display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;
+  margin-top:14px;font-size:11px;color:var(--m-dim);
+}
+.mr-help button{
+  padding:4px 10px;border-radius:9px;cursor:pointer;font-size:11px;color:var(--m-green);
+  background:rgba(92,255,168,.08);border:1px solid var(--m-line);
+}
+
+@media (max-width:640px){
+  .mr-hud{grid-template-columns:repeat(3,1fr)}
+  .mr-key{width:140px;height:140px}
+  /* 手机上把规则压紧，保证"开始值班"不用滚动就看得见 */
+  .mr-rule{font-size:11px;padding:6px 8px;gap:5px}
+  .mr-art{font-size:36px}
+  .mr-panel h2{font-size:18px}
+  .mr-lead{margin-top:9px;line-height:1.7}
+  .mr-codebook{margin-top:10px;padding:8px}
+}
+</style>
+<div class="mr-app">
+
+  <!-- SECTION: morse-titlebar -->
+  <header class="mr-titlebar">
+    <button class="mr-home" type="button" data-back-home aria-label="返回小游戏乐园">← 乐园</button>
+    <div class="mr-brand">
+      <div class="mr-mark" aria-hidden="true">📡</div>
+      <div>
+        <h1>深夜电台 · 摩尔斯电码</h1>
+        <p>MORSE RADIO · 值班练习台</p>
+      </div>
+    </div>
+    <div class="mr-tools">
+      <button class="mr-icon-btn" id="morseBtnSound" type="button" title="音效开关 (M)" aria-label="音效开关">🔊</button>
+      <button class="mr-icon-btn" id="morseBtnPause" type="button" title="暂停 (P)" aria-label="暂停">⏸</button>
+    </div>
+  </header>
+
+  <!-- SECTION: morse-hud -->
+  <div class="mr-hud">
+    <div class="mr-stat"><div class="k">关卡</div><div class="v" id="morseLevel">1</div></div>
+    <div class="mr-stat"><div class="k">本关得分</div><div class="v" id="morseScore">0</div></div>
+    <div class="mr-stat"><div class="k">累计</div><div class="v" id="morseTotal">0</div></div>
+    <div class="mr-stat"><div class="k">连击</div><div class="v" id="morseCombo">×1</div></div>
+    <div class="mr-stat signal">
+      <div class="k">信号强度</div><div class="v" id="morseSignal">S1</div>
+      <div class="mr-bar"><i id="morseSignalBar" style="width:11%"></i></div>
+    </div>
+    <div class="mr-stat"><div class="k">生命</div><div class="v" id="morseLives">❤❤❤</div></div>
+  </div>
+
+  <!-- SECTION: morse-stage -->
+  <div class="mr-board">
+    <div class="mr-msgbar">
+      <span class="lbl">电文</span>
+      <div class="mr-word" id="morseWord" aria-live="polite"></div>
+      <span class="no" id="morseWordNo">1 / 3</span>
+    </div>
+    <div class="mr-pace" aria-hidden="true"><i id="morsePaceBar"></i></div>
+
+    <div class="mr-scope">
+      <div class="mr-lamp" id="morseLamp" aria-hidden="true"></div>
+      <div class="mr-buffer empty" id="morseBuffer"></div>
+      <div class="mr-status" id="morseStatus">待机</div>
+    </div>
+
+    <div class="mr-keyrow">
+      <button class="mr-key" id="morseKey" type="button" aria-label="电报电键：短按出点，按住出划">
+        <span class="ring" aria-hidden="true"></span>
+        <span class="mr-key-txt">按我发报</span>
+        <span class="mr-key-sub">短按 = 点 · 按住 = 划</span>
+      </button>
+      <div class="mr-side">
+        <button class="mr-aux" id="morseBtnListen" type="button">🔊 收听这个字 (L)</button>
+        <button class="mr-aux" id="morseBtnReveal" type="button">👁 看一眼码表 (H)</button>
+        <div class="mr-mastery">
+          <div class="k">已掌握字符</div>
+          <div class="v" id="morseMastery">0 / 8</div>
+          <div class="mr-bar"><i id="morseMasteryBar" style="width:0%"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mr-tip" id="morseCharTip">短按出「点」，按住出「划」；松手停顿一下，一个字符就发出去了。</div>
+    <div class="mr-newchars" id="morseNewChars">起手式：E T</div>
+    <div class="mr-toast" id="morseToast"></div>
+
+    <!-- 开始界面 -->
+    <div class="mr-ov show" id="morseOvStart">
+      <div class="mr-panel">
+        <div class="mr-art" aria-hidden="true">📡</div>
+        <h2>深夜电台 · 摩尔斯电码</h2>
+        <div class="mr-en">MORSE RADIO</div>
+        <p class="mr-lead">你是今晚的值班报务员。面板上会出现一条电文，<br>用电键把它一个字一个字发出去 —— 只要发对，电台就是通的。</p>
+        <div class="mr-codebook" aria-label="首关字符码表">
+          <div><b>E</b><span>·</span></div>
+          <div><b>T</b><span>—</span></div>
+          <div><b>A</b><span>·—</span></div>
+          <div><b>I</b><span>··</span></div>
+          <div><b>N</b><span>—·</span></div>
+          <div><b>M</b><span>——</span></div>
+          <div><b>S</b><span>···</span></div>
+          <div><b>O</b><span>———</span></div>
+        </div>
+        <div class="mr-rules">
+          <div class="mr-rule"><i>👆</i><span>短按电键＝<b>点</b>，按住不放＝<b>划</b></span></div>
+          <div class="mr-rule"><i>⏸️</i><span>松手后<b>停顿一下</b>＝一个字符发完</span></div>
+          <div class="mr-rule"><i>🔊</i><span>拿不准就按<b>收听</b>，先记节奏</span></div>
+          <div class="mr-rule"><i>🏅</i><span>答对涨<b>熟练度</b>，≥6 算掌握</span></div>
+          <div class="mr-rule"><i>💔</i><span>发错扣一条命，<b>错字后面还会再考</b></span></div>
+          <div class="mr-rule"><i>📻</i><span>每关只解锁<b>一组新字符</b>，不急</span></div>
+        </div>
+        <button class="mr-btn" id="morseBtnStart" type="button" data-primary-action>开始值班</button>
+        <button class="mr-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+        <div class="mr-hint">桌面端也可用 <kbd>空格</kbd> 当电键 · <kbd>L</kbd> 收听 · <kbd>H</kbd> 看码 · <kbd>P</kbd> 暂停 · <kbd>Esc</kbd> 返回</div>
+      </div>
+    </div>
+
+    <!-- 暂停界面 -->
+    <div class="mr-ov" id="morseOvPause">
+      <div class="mr-panel">
+        <div class="mr-art" aria-hidden="true">☕</div>
+        <h2>值夜班也要歇口气</h2>
+        <div class="mr-en">STAND BY</div>
+        <p class="mr-lead">电键已松开，电文先放着，回来接着发。</p>
+        <button class="mr-btn" id="morseBtnResume" type="button" data-primary-action>继续值班</button>
+        <button class="mr-btn ghost" id="morseBtnQuit" type="button">结束本局</button>
+        <button class="mr-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+      </div>
+    </div>
+
+    <!-- 结算界面 -->
+    <div class="mr-ov" id="morseOvOver">
+      <div class="mr-panel">
+        <div class="mr-art" id="morseOvOverArt" aria-hidden="true">📻</div>
+        <h2 id="morseOvOverTitle">信号中断</h2>
+        <div class="mr-en" id="morseOvOverKana">QRT</div>
+        <div class="mr-result">
+          <div class="mr-rcell"><div class="k">到达关卡</div><div class="v" id="morseRLevel">1</div></div>
+          <div class="mr-rcell"><div class="k">本关得分</div><div class="v" id="morseRScore">0</div></div>
+          <div class="mr-rcell"><div class="k">累计总分</div><div class="v" id="morseRTotal">0</div></div>
+          <div class="mr-rcell"><div class="k">准确率</div><div class="v" id="morseRAcc">100%</div></div>
+          <div class="mr-rcell"><div class="k">最大连击</div><div class="v" id="morseRCombo">0</div></div>
+          <div class="mr-rcell"><div class="k">已掌握</div><div class="v" id="morseRMastery">0 / 8</div></div>
+        </div>
+        <div class="mr-record" id="morseRRecord">🎉 新纪录！</div>
+        <div class="mr-bestline">最高分 <b id="morseRBest">0</b></div>
+        <button class="mr-btn" id="morseBtnNext" type="button" data-primary-action>进入下一关</button>
+        <button class="mr-btn" id="morseBtnRetry" type="button">再来一局</button>
+        <button class="mr-btn ghost" id="morseBtnEndRun" type="button">收工，看成绩</button>
+        <button class="mr-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+        <div class="mr-hint" id="morseRTip">提示：短按出点、按住出划。</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mr-help">
+    <span>👆 短按＝点</span><span>✊ 按住＝划</span><span>⏸️ 停顿＝字符结束</span>
+    <span>🔊 L 收听</span><span>👁 H 看码</span>
+    <span><button type="button" data-back-home>返回小游戏乐园</button></span>
+  </div>
+
+</div>
+</div>
+
 <script src="assets/game-data.js"></script>
 <script src="assets/game-scene.js"></script>
 <script src="assets/game-core.js"></script>
@@ -1068,6 +1544,9 @@ button{font-family:inherit}
 <script src="assets/match3-data.js"></script>
 <script src="assets/match3-core.js"></script>
 <script src="assets/match3.js"></script>
+<script src="assets/morse-data.js"></script>
+<script src="assets/morse-core.js"></script>
+<script src="assets/morse.js"></script>
 <script src="assets/portal.js"></script>
 </body>
 </html>

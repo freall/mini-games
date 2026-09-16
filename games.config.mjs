@@ -16,6 +16,8 @@
 
    路径约定：scripts 一律写相对 site/ 根 的路径（assets/xxx.js）。
    子页面（sushi/match3/…）需要的 ../ 前缀由构建脚本自动补，不用手写。
+   app 字段 = 游戏模块挂载的全局名（window.<app>），构建时写成 <body data-app="...">，
+   多页面下的 boot.js 靠它挂载，所以加游戏不用改 boot.js。
    ============================================================ */
 
 export const SITE_TITLE = '小游戏乐园 · 迷你游戏合集';
@@ -35,7 +37,10 @@ export const GAMES = [
     id: 'sushi',
     dir: 'sushi',
     title: '回转寿司大作战 · 小游戏乐园',
-    /* body 上的 data-* 供 boot.js 读取（data-game=挂哪个游戏，data-home=门户相对地址） */
+    /* 游戏模块挂载在 window 上的名字：构建时写成 <body data-app="...">，
+       多页面下的 boot.js 据此挂载，加游戏不用改 boot.js */
+    app: 'SUSHI_APP',
+    /* body 上的 data-* 供 boot.js 读取（data-home=门户相对地址） */
     bodyAttrs: ' data-game="sushi" data-home="../"',
     scripts: [
       'assets/game-data.js',
@@ -49,11 +54,25 @@ export const GAMES = [
     id: 'match3',
     dir: 'match3',
     title: 'AI图标消消乐 · 小游戏乐园',
+    app: 'MATCH3_APP',
     bodyAttrs: ' data-game="match3" data-home="../"',
     scripts: [
       'assets/match3-data.js',
       'assets/match3-core.js',
       'assets/match3.js',
+      'assets/boot.js'
+    ]
+  },
+  {
+    id: 'morse',
+    dir: 'morse',
+    title: '深夜电台 · 摩尔斯电码 · 小游戏乐园',
+    app: 'MORSE_APP',
+    bodyAttrs: ' data-game="morse" data-home="../"',
+    scripts: [
+      'assets/morse-data.js',
+      'assets/morse-core.js',
+      'assets/morse.js',
       'assets/boot.js'
     ]
   }
