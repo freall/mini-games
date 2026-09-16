@@ -106,6 +106,22 @@ export function verify(root = SCRIPT_DIR) {
       if (!existsSync(p2)) { continue; } // 缺文件上面已报过，这里跳过以免自检自己崩掉
       jsSource += readFileSync(p2, 'utf8');
     }
+
+    /* 6'. data-app 写的游戏模块名，必须真的在页面脚本里被定义（boot.js 靠它挂载） */
+    const appAttr = html.match(/<body[^>]*\sdata-app="([^"]+)"/);
+    if (p.app) {
+      if (!appAttr || appAttr[1] !== p.app) {
+        fail(`site/${rel} 的 <body data-app> 与配置不一致（配置 ${p.app}，页面 ${appAttr ? appAttr[1] : '缺失'}）`);
+      } else if (!new RegExp('window\\.' + p.app + '\\s*=').test(jsSource)) {
+        fail(`site/${rel} 声明了 ${p.app}，但页面脚本里没有 window.${p.app} = …（游戏模块没挂上）`);
+      }
+    } else if (appAttr) {
+      warn(`site/${rel} 有 data-app 但 games.config.mjs 里没写 app 字段`);
+    }
+    if (p.app && !html.includes(`data-game="${p.id}"`)) {
+      warn(`site/${rel} 的 data-game 与配置 id（${p.id}）不一致，旧版 boot.js 的兜底映射会失效`);
+    }
+
     const needIds = collectIds(jsSource);
     const dynamicIds = collectCreatedIds(jsSource);
     const missing = [...needIds].filter(id => !dynamicIds.has(id) && !new RegExp(`id="${id}"`).test(html));
