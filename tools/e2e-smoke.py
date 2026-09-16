@@ -287,6 +287,11 @@ def main():
 
         # ---- 摩尔斯页 ----
         pg = new_page()
+        # 深链：?mode= 直接进指定模块（README 里对外承诺的用法）
+        pg.goto(base + '/morse/?mode=digit', wait_until='load')
+        pg.wait_for_timeout(900)
+        deep = pg.evaluate("() => window.MORSE_APP.stats().mode")
+        results.append(('摩尔斯 ?mode=digit 深链进数字模块', deep == 'digit', 'mode=%s' % deep))
         pg.goto(base + '/morse/', wait_until='load')
         pg.wait_for_timeout(1000)
         results.append(('摩尔斯 挂载 API 可用',
