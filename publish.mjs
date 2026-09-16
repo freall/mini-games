@@ -221,18 +221,32 @@ if (!FORCE_API) {
       + (res.total / 1024).toFixed(1) + ' KB）');
     if (result.dryRun) { console.log('ℹ️  --dry-run：跳过推送。'); process.exit(0); }
 
+    let pushed = false;
     try {
       console.log('→ git push origin ' + BRANCH + ':' + BRANCH);
       console.log(git(['push', 'origin', BRANCH + ':' + BRANCH]) || '（已推送）');
-      const remote = (git(['fetch', 'origin', BRANCH]) , git(['rev-parse', 'origin/' + BRANCH]));
-      if (remote !== result.commit) {
-        throw new Error('推送后 origin/' + BRANCH + ' = ' + remote + ' != ' + result.commit);
-      }
-      console.log('✅ 远端 origin/' + BRANCH + ' 已确认指向 ' + remote.slice(0, 8));
+      pushed = true;
     } catch (e) {
       console.log('⚠️  git push 失败：' + String(e.stderr || e.message).split('\n')[0]);
       console.log('→ 降级到 GitHub API 通道…');
       result = null;
+    }
+
+    /* 推送后的核对要单独 try：
+       1) 不能用 origin/<branch> 当判据 —— `git fetch origin <branch>` 只写 FETCH_HEAD，
+          远端跟踪引用可能根本不存在，会把"推送已成功"误报成"推送失败"（踩过一次）；
+       2) 核对失败只是网络问题，不该触发 API 通道重复发布。 */
+    if (pushed) {
+      try {
+        git(['fetch', 'origin', BRANCH]);
+        const remote = git(['rev-parse', 'FETCH_HEAD']);
+        console.log(remote === result.commit
+          ? '✅ 远端 ' + BRANCH + ' 已确认指向 ' + remote.slice(0, 8)
+          : '⚠️  远端 ' + BRANCH + ' 现在是 ' + remote.slice(0, 8) + '（本次提交 ' + result.commit.slice(0, 8) + '，可能有人同时推过）');
+      } catch (e) {
+        console.log('ℹ️  推送后核对失败（网络）：' + String(e.stderr || e.message).split('\n')[0]);
+        console.log('   可稍后用 gh api repos/<owner>/<repo>/git/ref/heads/' + BRANCH + ' --jq .object.sha 确认');
+      }
     }
   }
 }
