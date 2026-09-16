@@ -295,16 +295,40 @@ def main():
                         pg.evaluate("() => window.MORSE_DATA && window.MORSE_DATA.CHARS.length") == 36, ''))
         hit = pg.evaluate(HITTABLE, 'morseBtnStart')
         results.append(('摩尔斯 开始按钮可点', hit == 'OK', hit))
+
+        # 模块选择器：开始面板是铺满屏幕的覆盖层，会盖住棋盘上的标签，
+        # 所以开始/结算面板里另放一份同样的选择器（data-mode 统一分发）
+        def st():
+            return pg.evaluate("() => window.MORSE_APP.stats()")
+
+        def switch_mode(m):
+            if 'show' in (pg.locator('#morseOvStart').get_attribute('class') or ''):
+                pg.locator('#morseChooserStart [data-mode="%s"]' % m).click()
+            else:
+                pg.locator('#morseTabs [data-mode="%s"]' % m).click()
+            pg.wait_for_timeout(500)
+
+        chips = pg.locator('#morseChooserStart [data-mode]').count()
+        results.append(('摩尔斯 开始面板里有模块选择器', chips == 3, 'chips=%d' % chips))
+        switch_mode('recv')
+        r1 = st()['mode']
+        switch_mode('send')
+        r2 = st()['mode']
+        results.append(('摩尔斯 开始面板可切换模块', r1 == 'recv' and r2 == 'send', '%s -> %s' % (r1, r2)))
+
         pg.screenshot(path=os.path.join(SHOTS, 'morse-start.png'))
         pg.locator('#morseBtnStart').click()
         pg.wait_for_timeout(700)
 
         # 电键：点 = 短按，划 = 按住；最后停顿超过 560ms 触发提交
-        key = pg.evaluate("""() => { const r = document.getElementById('morseKey').getBoundingClientRect();
-          return [r.x + r.width / 2, r.y + r.height / 2]; }""")
+        def key_center():
+            pg.evaluate("() => null")   # 确保上一帧已布局
+            return pg.evaluate("""() => { const r = document.getElementById('morseKey').getBoundingClientRect();
+              return [r.x + r.width / 2, r.y + r.height / 2]; }""")
 
         def send(code):
-            pg.mouse.move(key[0], key[1])
+            k = key_center()
+            pg.mouse.move(k[0], k[1])
             for sym in code:
                 pg.mouse.down()
                 pg.wait_for_timeout(60 if sym == '.' else 380)
@@ -368,6 +392,79 @@ def main():
                         lives1.count('❤') < lives0.count('❤') and '应该是' in tip_after,
                         '生命 %s -> %s' % (lives0, lives1)))
         pg.screenshot(path=os.path.join(SHOTS, 'morse-wrong.png'))
+
+        # ---- 模块二：抄收（听/看码 → 解码）----
+        switch_mode('recv')
+        m = st()
+        results.append(('摩尔斯 切到抄收模块', m['mode'] == 'recv', 'mode=%s' % m['mode']))
+        key_vis = pg.evaluate("() => getComputedStyle(document.getElementById('morseKey')).display")
+        results.append(('摩尔斯 抄收模块不显示电键', key_vis == 'none', 'key display=%s' % key_vis))
+        pg.locator('#morseBtnStart').click()
+        pg.wait_for_timeout(900)
+        m = st()
+        n_opts = pg.locator('#morseOptions button').count()
+        results.append(('摩尔斯 抄收已出题（选项与状态一致）',
+                        m['state'] == 'playing' and n_opts == len(m['options']) and len(m['options']) >= 3,
+                        'options=%s' % m['options']))
+        pg.screenshot(path=os.path.join(SHOTS, 'morse-recv.png'))
+
+        ans = m['answer']
+        score0 = m['score']
+        pg.locator('#morseOptions button[data-ch="%s"]' % ans).click()
+        pg.wait_for_timeout(1000)          # 判对后先亮答案 700ms 再进下一题
+        m2 = st()
+        results.append(('摩尔斯 抄收答对（得分增加且进入下一题）',
+                        m2['score'] > score0 and m2['roundIndex'] == m['roundIndex'] + 1,
+                        'answer=%s score %d -> %d，题号 %d -> %d'
+                        % (ans, score0, m2['score'], m['roundIndex'], m2['roundIndex'])))
+
+        # 呈现方式：切「看码」后重放，点划条应逐段画出来
+        pg.locator('#morseBtnView').click()
+        pg.wait_for_timeout(300)
+        results.append(('摩尔斯 可切换听/看两种呈现', st()['viewMode'] == 'watch', 'viewMode=' + st()['viewMode']))
+        pg.locator('#morseBtnPlay').click()
+        pg.wait_for_timeout(1200)
+        trace = pg.locator('#morseTrace i').count()
+        results.append(('摩尔斯 看码模式画出了点划条', trace > 0, 'trace=%d 段' % trace))
+        pg.screenshot(path=os.path.join(SHOTS, 'morse-recv-watch.png'))
+
+        # 答错：扣命 + 正确答案被标出来
+        m = st()
+        wrong_ch = next(c for c in m['options'] if c != m['answer'])
+        lives0 = m['lives']
+        pg.locator('#morseOptions button[data-ch="%s"]' % wrong_ch).click()
+        pg.wait_for_timeout(300)
+        marked = pg.evaluate("() => !!document.querySelector('#morseOptions button.right')")
+        m3 = st()
+        results.append(('摩尔斯 抄收答错扣命并标出正确项',
+                        m3['lives'] == lives0 - 1 and marked,
+                        '选了 %s，正确 %s，生命 %d -> %d' % (wrong_ch, m['answer'], lives0, m3['lives'])))
+
+        # ---- 模块三：数字（编码 + 解码交替）----
+        switch_mode('digit')
+        results.append(('摩尔斯 切到数字模块', st()['mode'] == 'digit', 'mode=' + st()['mode']))
+        law = pg.locator('#morsePanelDigit .mr-law').inner_text()
+        results.append(('摩尔斯 数字模块给出「数字律」提示', 'n 个点' in law, law[:34]))
+        pg.locator('#morseBtnStart').click()
+        pg.wait_for_timeout(900)
+
+        types, score_before, ok_cnt = [], st()['score'], 0
+        for _ in range(3):
+            m = st()
+            types.append(m['digitType'])
+            if m['digitType'] == 'encode':
+                send(code_of(m['answer']))
+            else:
+                pg.locator('#morseDigitOptions button[data-ch="%s"]' % m['answer']).click()
+                pg.wait_for_timeout(900)
+            if st()['score'] > score_before:
+                ok_cnt += 1
+            score_before = st()['score']
+        m = st()
+        results.append(('摩尔斯 数字模块编码/解码都能作答',
+                        ok_cnt >= 2 and ('encode' in types and 'decode' in types),
+                        '题型=%s 答对 %d/3' % ('/'.join(types), ok_cnt)))
+        pg.screenshot(path=os.path.join(SHOTS, 'morse-digit.png'))
 
         pg.locator('[data-back-home]').first.click()
         pg.wait_for_timeout(900)

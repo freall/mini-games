@@ -157,6 +157,85 @@ eq('数字电文长度受限', C.pickNumber(2, seeded(9)).length, 2);
 ok('高阶关会掺入数字电文',
   C.buildPlan(6, seeded(11), [], {}).messages.some(m => /^\d+$/.test(m)));
 
+/* SECTION: 抄收（听/看码解码） */
+out.push('=== 抄收模块 ===');
+eq('WPM → 点长：6WPM = 200ms', C.unitMs(6), 200);
+eq('WPM → 点长：12WPM = 100ms', C.unitMs(12), 100);
+ok('WPM 下限保护（不会算出 0 或负数）', C.unitMs(0) > 0 && C.unitMs(1) >= 300, 'unitMs(0)=' + C.unitMs(0));
+eq('码距离：完全相同 = 0', C.codeDistance('.-', '.-'), 0);
+eq('码距离：点划互换 = 2', C.codeDistance('.-', '-.'), 2);
+eq('码距离：长度不同会累加', C.codeDistance('.', '...'), 2);
+eq('码距离：一位之差 = 1', C.codeDistance('-.', '-..'), 1);
+eq('码距离：数字比字母远', C.codeDistance('.....', '----.'), 4);
+
+const pool6 = ['A', 'B', 'C', 'D', 'E', 'T'];
+const opts = C.pickOptions('A', pool6, 3, seeded(3));
+eq('选项数 = 请求数', opts.length, 3);
+eq('选项里正确答案只出现一次', opts.filter(x => x === 'A').length, 1);
+ok('选项都在候选里且不重复', opts.every(x => pool6.indexOf(x) >= 0) && new Set(opts).size === opts.length, opts.join(''));
+ok('候选不足时不会硬凑（超量请求）', C.pickOptions('A', ['A', 'B'], 4, seeded(1)).length === 2);
+/* 干扰项要有"形近"偏好：把目标码 A(.-) 的相似度统计一下，应显著优于随机乱取 */
+const TARGET_CODE = D.BY_CHAR.A.code;
+const othersByDist = D.CHARS.filter(c => c.ch !== 'A')
+  .map(c => ({ ch: c.ch, d: C.codeDistance(c.code, TARGET_CODE) }))
+  .sort((a, b) => a.d - b.d);
+const nearest8 = new Set(othersByDist.slice(0, 8).map(o => o.ch));
+const nearest8Max = othersByDist[7].d;
+const poolAvg = othersByDist.reduce((s, o) => s + o.d, 0) / othersByDist.length;
+let nearSum = 0, trials = 300;
+let allFromNearest = true;
+for (let i = 0; i < trials; i++) {
+  const picked = C.pickOptions('A', D.CHARS.map(c => c.ch), 4, seeded(i + 1)).filter(x => x !== 'A');
+  for (const ch of picked) {
+    nearSum += C.codeDistance(D.BY_CHAR[ch].code, TARGET_CODE);
+    if (!nearest8.has(ch)) { allFromNearest = false; }
+  }
+}
+const nearAvg = nearSum / (trials * 3);
+ok('干扰项只从"最近的 8 个形近码"里抽', allFromNearest, '最近 8 个的距离上限=' + nearest8Max);
+ok('干扰项平均距离显著小于整个码表的平均距离', nearAvg < poolAvg,
+  `形近取均值=${nearAvg.toFixed(2)} vs 全表均值=${poolAvg.toFixed(2)}`);
+
+const rcfg1 = D.recvConfig(1), rcfg3 = D.recvConfig(3), rcfg9 = D.recvConfig(9);
+eq('抄收第 1 关 3 个选项', rcfg1.options, 3);
+eq('抄收第 3 关起 4 个选项', rcfg3.options, 4);
+ok('抄收速度随关卡变快并封顶 14WPM',
+  rcfg1.wpm < rcfg3.wpm && rcfg9.wpm <= 14, `${rcfg1.wpm} → ${rcfg3.wpm} → ${rcfg9.wpm}`);
+ok('抄收题目的作答时间随关卡收紧', rcfg9.budgetMs < rcfg1.budgetMs, `${rcfg1.budgetMs} → ${rcfg9.budgetMs}ms`);
+eq('抄收第 1 关生命 3', rcfg1.lives, 3);
+
+const rplan1 = C.recvPlan(1, seeded(11), []);
+eq('抄收出题数 = 关卡配置', rplan1.rounds.length, rcfg1.rounds);
+ok('每题都含正确项且选项数正确',
+  rplan1.rounds.every(r => r.options.length === Math.min(rcfg1.options, rplan1.chars.length) && r.options.indexOf(r.ch) >= 0));
+ok('抄收不会出未解锁的字符',
+  rplan1.rounds.every(r => rplan1.chars.indexOf(r.ch) >= 0), rplan1.rounds.map(r => r.ch).join(''));
+ok('抄收选项不重复', rplan1.rounds.every(r => new Set(r.options).size === r.options.length));
+const rplanReview = C.recvPlan(3, seeded(5), ['P']);
+ok('待复习字符会优先出现（抄收）', rplanReview.rounds.some(r => r.ch === 'P'),
+  rplanReview.rounds.map(r => r.ch).join(''));
+const recap = C.recvPlan(20, seeded(2), []);
+ok('满级抄收速度封顶', D.recvConfig(20).wpm === 14 && recap.rounds.length <= 8, 'wpm=' + D.recvConfig(20).wpm);
+
+/* SECTION: 数字专项 */
+out.push('=== 数字模块 ===');
+const dcfg1 = D.digitConfig(1);
+eq('数字每关 6 题', dcfg1.rounds, 6);
+eq('数字第 1 关速度 5WPM', dcfg1.wpm, 5);
+ok('数字速度随关卡变快并封顶 12WPM',
+  D.digitConfig(2).wpm > dcfg1.wpm && D.digitConfig(9).wpm === 12);
+const dplan1 = C.digitPlan(1, seeded(7));
+eq('数字出题数 = 6', dplan1.rounds.length, 6);
+eq('数字编码/解码各 3 题',
+  dplan1.rounds.filter(r => r.type === 'encode').length + '/' + dplan1.rounds.filter(r => r.type === 'decode').length, '3/3');
+ok('数字题都是 0~9', dplan1.rounds.every(r => /^[0-9]$/.test(r.ch)), dplan1.rounds.map(r => r.ch).join(''));
+ok('编码解码交替出现',
+  dplan1.rounds.every((r, i) => r.type === (i % 2 === 0 ? 'encode' : 'decode')));
+eq('数字模式的掌握度基数 = 10 个数字', dplan1.chars.length, 10);
+ok('数字码都是 5 位', '0123456789'.split('').every(d => C.codeOf(d).length === 5));
+eq('基础分可调：抄收 12 分 ×1.5', C.scoreFor({ base: 12, combo: 0, paceMs: 4000, elapsedMs: 1000, helped: false }), 18);
+eq('基础分可调：数字 14 分 ×1.5', C.scoreFor({ base: 14, combo: 0, paceMs: 4000, elapsedMs: 1000, helped: false }), 21);
+
 console.log(out.join('\n'));
 console.log('\n' + (fail ? `❌ 失败 ${fail} / 共 ${pass + fail} 项` : `✅ 全部通过（${pass} 项断言）`));
 process.exit(fail ? 1 : 0);
