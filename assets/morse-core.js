@@ -101,13 +101,82 @@ window.MORSE_CORE = (function () {
   /* 信号强度只是趣味化的连击展示：S1~S9 */
   function signalStrength(combo) { return Math.min(9, 1 + combo); }
 
-  /* 一个字符得分：基础 10 × 连击倍率 × 速度系数；用过辅助（收听/看码）打对折 */
+  /* 一个字符得分：基础分 × 连击倍率 × 速度系数；用过辅助（重放/看码）打对折 */
   function scoreFor(o) {
-    var base = 10 * comboMult(o.combo);
+    var base = (o.base || 10) * comboMult(o.combo);
     var pace = o.paceMs || 3000;
     var speed = o.elapsedMs <= pace ? 1.5 : (o.elapsedMs <= pace * 2 ? 1 : 0.6);
     var v = base * speed * (o.helped ? 0.5 : 1);
     return Math.max(1, Math.round(v));
+  }
+
+  /* SECTION: 抄收（解码）——发报速度与选项干扰项
+     标准摩尔斯速度：一个点的时长 = 1.2s / WPM（WPM=5 → 240ms，WPM=12 → 100ms）。 */
+  function unitMs(wpm) { return Math.round(1200 / Math.max(3, wpm)); }
+
+  /* 两个码"像不像"：长度差 + 逐位不同的位数（数字是码长差，字母多为一位之差） */
+  function codeDistance(a, b) {
+    var n = Math.min(a.length, b.length), d = Math.abs(a.length - b.length);
+    for (var i = 0; i < n; i++) { if (a[i] !== b[i]) { d++; } }
+    return d;
+  }
+
+  function shuffle(arr, rng) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  /* 出选择题：正确项 + 若干个"形近"干扰项。
+     先按码的相似度排序，只从最近的 2×count 个里随机抽取 ——
+     既保证干扰项够像（错得有价值），又不会每次都出同一组选项。 */
+  function pickOptions(targetCh, pool, count, rng) {
+    rng = rng || Math.random;
+    var target = codeOf(targetCh);
+    var others = [];
+    for (var i = 0; i < pool.length; i++) { if (pool[i] !== targetCh) { others.push(pool[i]); } }
+    others.sort(function (a, b) { return codeDistance(codeOf(a), target) - codeDistance(codeOf(b), target); });
+    var cand = others.slice(0, Math.min(others.length, Math.max(count, count * 2)));
+    shuffle(cand, rng);
+    var picked = cand.slice(0, Math.max(0, count - 1));
+    return shuffle([targetCh].concat(picked), rng);
+  }
+
+  /* SECTION: 数字专项 —— 编码/解码交替出题
+     encode：给数字，用电键把它的码发出来
+     decode：听/看码，从 0~9 里选出是哪个数字 */
+  function digitPlan(level, rng) {
+    rng = rng || Math.random;
+    var cfg = D.digitConfig(level);
+    var out = [];
+    for (var i = 0; i < cfg.rounds; i++) {
+      var ch = String(Math.floor(rng() * 10));
+      out.push({ type: (i % 2 === 0) ? 'encode' : 'decode', ch: ch });
+    }
+    return { config: cfg, rounds: out, chars: '0123456789'.split('') };
+  }
+
+  /* SECTION: 抄收出题（与发报共用同一套解锁字符） */
+  function recvPlan(level, rng, review) {
+    rng = rng || Math.random;
+    var cfg = D.recvConfig(level);
+    var chars = D.charsForGroups(cfg.groups);
+    var rounds = [];
+    for (var i = 0; i < cfg.rounds; i++) {
+      /* 待复习字符优先出现（错过的码更该多听几遍） */
+      var ch;
+      var usable = [];
+      for (var r = 0; r < (review || []).length; r++) {
+        if (chars.indexOf(review[r]) >= 0) { usable.push(review[r]); }
+      }
+      if (usable.length && rng() < 0.5) { ch = usable[Math.floor(rng() * usable.length)]; }
+      else { ch = chars[Math.floor(rng() * chars.length)]; }
+      var options = pickOptions(ch, chars, Math.min(cfg.options, chars.length), rng);
+      rounds.push({ ch: ch, options: options });
+    }
+    return { config: cfg, chars: chars, rounds: rounds };
   }
 
   /* SECTION: 熟练度与掌握进度 */
@@ -139,6 +208,9 @@ window.MORSE_CORE = (function () {
     pickWord: pickWord, pickNumber: pickNumber, buildPlan: buildPlan,
     comboMult: comboMult, signalStrength: signalStrength, scoreFor: scoreFor,
     masteryStep: masteryStep, masteredCount: masteredCount,
-    reviewPush: reviewPush, accuracy: accuracy
+    reviewPush: reviewPush, accuracy: accuracy,
+    /* 抄收 / 数字专项 */
+    unitMs: unitMs, codeDistance: codeDistance, shuffle: shuffle,
+    pickOptions: pickOptions, recvPlan: recvPlan, digitPlan: digitPlan
   };
 })();

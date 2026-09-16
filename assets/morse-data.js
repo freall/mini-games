@@ -119,12 +119,65 @@ window.MORSE_DATA = (function () {
     return out;
   }
 
+  /* SECTION: recvConfig · 抄收（听/看码解码）关卡
+     选项数从 3 涨到 4；速度按标准 WPM 递进（点长 = 1.2s / WPM）。
+     一开始给 6 WPM（点 200ms）—— 慢到能听清；到第 9 关 14 WPM（点 86ms）。 */
+  function recvConfig(level) {
+    var lv = Math.max(1, level | 0);
+    return {
+      level: lv,
+      groups: Math.min(6, lv + 1),
+      newGroup: lv + 1 <= 6 ? lv + 1 : 0,
+      rounds: Math.min(8, 5 + Math.floor((lv - 1) / 3)),
+      options: lv >= 3 ? 4 : 3,
+      wpm: Math.min(14, 6 + (lv - 1)),
+      lives: 3,
+      /* 每题给多少时间（含播放时长），超了就没有速度奖励 */
+      budgetMs: Math.max(3200, 6500 - (lv - 1) * 320)
+    };
+  }
+
+  /* SECTION: digitConfig · 数字专项（编码 + 解码交替）
+     数字只有 10 个、规律性强（n 个点补划到 5 位），所以单独练。 */
+  function digitConfig(level) {
+    var lv = Math.max(1, level | 0);
+    return {
+      level: lv,
+      rounds: 6,
+      wpm: Math.min(12, 5 + (lv - 1)),
+      lives: 3,
+      budgetMs: Math.max(3400, 7000 - (lv - 1) * 380)
+    };
+  }
+
   var TIPS = [
     '短按出点、按住不放出划；松手后停顿一下，就是一个字符结束 —— 这正是真实的发报节奏。',
     '拿不准的时候按「收听」，先让耳朵记住节奏，比死看码表管用。',
     '点划时长比是 1:3，划要明显拖长，别让收报方听混。',
     '数字有规律：n 个点补划到 5 位，只有 0 是五个划。',
     '答错的字符电台会记下来，后面几轮会再考你一次。'
+  ];
+
+  /* SECTION: 抄收 / 数字 两个模式的文案与提示 */
+  var RECV_TIPS = [
+    '先听「节奏形状」再想字母：A 是「短-长」，N 是「长-短」，别一个点一个点地数。',
+    '字母越长越难，但它前面几位能猜到后面 —— 比如听到「划划」先想 M / O / G。',
+    '看不清就切「看码」模式读点划条；听不清就按 L 再放一次（本字得分减半）。',
+    '真实报务员是整词成组地抄，练到后面试试连着听两个字符。'
+  ];
+
+  var DIGIT_TIPS = [
+    '数字规律：1 是「1 个点 + 4 个划」，2 是「2 点 + 3 划」…… 5 是五个点；6~9 反过来，划在前。',
+    '0 是唯一的例外：五个划。',
+    '数字码都很长（5 位），听的时候抓住「点划分界」的位置就能定位。',
+    '发数字时手要拖够长 —— 划发短了，5 位码很容易被听成别的数字。'
+  ];
+
+  /* 数字「律」的图示说明（数字模式面板上常驻展示） */
+  var DIGIT_LAW = [
+    { n: '0', code: '-----', note: '五个划（唯一例外）' },
+    { n: '1~5', code: '·→再补划', note: 'n 个点，后面补划到 5 位' },
+    { n: '6~9', code: '划→再补点', note: '反过来：划在前，点补到 5 位' }
   ];
 
   /* SECTION: audio（Web Audio 合成，无外部音频文件）
@@ -231,7 +284,9 @@ window.MORSE_DATA = (function () {
   return {
     CHARS: CHARS, BY_CHAR: BY_CHAR, BY_CODE: BY_CODE, GROUPS: GROUPS,
     WORDS: WORDS, NUM_WORDS: NUM_WORDS,
-    levelConfig: levelConfig, charsForGroups: charsForGroups,
-    TIPS: TIPS, Audio: Audio
+    levelConfig: levelConfig, recvConfig: recvConfig, digitConfig: digitConfig,
+    charsForGroups: charsForGroups,
+    TIPS: TIPS, RECV_TIPS: RECV_TIPS, DIGIT_TIPS: DIGIT_TIPS, DIGIT_LAW: DIGIT_LAW,
+    Audio: Audio
   };
 })();

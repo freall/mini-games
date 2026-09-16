@@ -880,6 +880,93 @@ button{font-family:inherit}
 .mr-pace i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--m-green-dim),var(--m-green))}
 .mr-pace i.slow{background:linear-gradient(90deg,#c2542a,#ff8a4c)}
 
+/* SECTION: morse-tabs · 三个模块（发报 / 抄收 / 数字） */
+.mr-tabs{display:flex;gap:7px;margin-bottom:11px}
+.mr-tab{
+  flex:1 1 0;padding:9px 6px;border-radius:12px;cursor:pointer;
+  font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--m-dim);
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  transition:color .18s ease,background .18s ease,border-color .18s ease;
+}
+.mr-tab:hover{color:var(--m-ink);background:rgba(92,255,168,.1)}
+.mr-tab.on{
+  color:#04120c;border-color:rgba(210,255,232,.5);
+  background:linear-gradient(180deg,#b6ffd8,var(--m-green));
+  box-shadow:0 6px 16px rgba(92,255,168,.24);
+}
+.mr-mode{display:block}
+/* 开始/结算面板里的模块选择（覆盖层铺满屏幕时，棋盘上的标签点不到，所以这里也放一份） */
+.mr-modechooser{margin-top:14px;padding-top:12px;border-top:1px dashed rgba(92,255,168,.18)}
+.mr-modechooser .mr-tip-line{font-size:11px;letter-spacing:.1em;color:var(--m-dim);margin-bottom:8px}
+.mr-modechooser .mr-tabs{margin-bottom:0}
+
+/* 抄收 / 数字：题面区 */
+.mr-prompt{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  padding:11px 13px;border-radius:14px;
+  background:rgba(2,8,6,.72);border:1px solid rgba(92,255,168,.12);
+}
+.mr-prompt .who{font-size:10px;letter-spacing:.18em;color:var(--m-dim)}
+.mr-prompt .txt{font-size:13.5px;font-weight:700;color:var(--m-ink)}
+.mr-prompt .meta{font-size:10.5px;letter-spacing:.1em;color:var(--m-dim);font-variant-numeric:tabular-nums}
+.mr-trace{
+  display:flex;align-items:center;gap:7px;min-height:22px;margin-top:9px;
+  padding:0 2px;flex-wrap:wrap;
+}
+.mr-trace i{display:block;background:var(--m-amber);box-shadow:0 0 9px rgba(255,192,97,.45)}
+.mr-trace i.dot{width:10px;height:10px;border-radius:50%}
+.mr-trace i.dash{width:32px;height:10px;border-radius:4px}
+.mr-viewrow{display:flex;gap:9px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.mr-viewbtn{
+  padding:9px 14px;border-radius:11px;cursor:pointer;font-size:12.5px;font-weight:700;
+  color:var(--m-ink);background:linear-gradient(180deg,rgba(92,255,168,.12),rgba(92,255,168,.03));
+  border:1px solid var(--m-line);
+}
+.mr-viewbtn:hover{background:rgba(92,255,168,.18)}
+.mr-viewbtn.watch{color:#2b1a04;background:linear-gradient(180deg,#ffe6b0,var(--m-amber));border-color:rgba(255,232,180,.6)}
+.mr-progress{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;
+  font-size:11px;letter-spacing:.08em;color:var(--m-dim);
+}
+.mr-progress b{color:var(--m-green);font-variant-numeric:tabular-nums}
+.mr-progress .mr-legend{margin-left:auto;color:rgba(255,192,97,.72)}
+
+/* 选项（抄收 4 选 1 / 数字解码 0~9） */
+.mr-options{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:12px}
+.mr-opt{
+  padding:16px 6px;border-radius:14px;cursor:pointer;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:clamp(20px,4.4vw,26px);font-weight:800;color:var(--m-green);
+  background:linear-gradient(180deg,rgba(92,255,168,.1),rgba(92,255,168,.02));
+  border:1px solid var(--m-line);
+  transition:transform .12s ease,background .18s ease,border-color .18s ease;
+}
+.mr-opt:hover{transform:translateY(-2px);background:rgba(92,255,168,.2)}
+.mr-opt.right{color:#04120c;background:linear-gradient(180deg,#b6ffd8,var(--m-green));border-color:rgba(210,255,232,.6)}
+.mr-opt.wrong{color:#ffd8c4;background:rgba(255,120,80,.18);border-color:rgba(255,140,90,.5)}
+.mr-dnums{grid-template-columns:repeat(5,1fr)}
+.mr-dnum{
+  padding:14px 4px;border-radius:13px;cursor:pointer;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:clamp(18px,4vw,24px);font-weight:800;color:var(--m-amber);
+  background:linear-gradient(180deg,rgba(255,192,97,.1),rgba(255,192,97,.02));
+  border:1px solid rgba(255,192,97,.22);
+  transition:transform .12s ease,background .18s ease;
+}
+.mr-dnum:hover{transform:translateY(-2px);background:rgba(255,192,97,.2)}
+.mr-dnum.right{color:#2b1a04;background:linear-gradient(180deg,#ffe6b0,var(--m-amber));border-color:rgba(255,232,180,.6)}
+.mr-dnum.wrong{color:#ffd8c4;background:rgba(255,120,80,.18);border-color:rgba(255,140,90,.5)}
+.mr-law{
+  margin-top:11px;padding:9px 12px;border-radius:12px;text-align:left;
+  background:rgba(255,192,97,.07);border:1px solid rgba(255,192,97,.18);
+  font-size:11px;line-height:1.75;color:rgba(223,247,234,.8);
+}
+.mr-law b{color:var(--m-amber)}
+.mr-law code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color:var(--m-green);letter-spacing:1px;
+}
+
 /* 示波器条：信号灯 + 刚敲出的码 */
 .mr-scope{
   display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 12px;
@@ -892,7 +979,7 @@ button{font-family:inherit}
 }
 .mr-lamp.on{background:var(--m-green);box-shadow:0 0 16px 4px rgba(92,255,168,.6)}
 .mr-buffer{display:flex;align-items:center;gap:7px;flex:1 1 auto;min-height:24px;flex-wrap:wrap}
-.mr-buffer.empty::after{content:"（按住电键开始发报）";font-size:12px;color:var(--m-dim)}
+.mr-buffer.empty::after{content:attr(data-ph);font-size:12px;color:var(--m-dim)}
 .mr-buffer i{display:block;background:var(--m-green);box-shadow:0 0 10px rgba(92,255,168,.5)}
 .mr-buffer i.dot{width:11px;height:11px;border-radius:50%}
 .mr-buffer i.dash{width:34px;height:11px;border-radius:4px}
