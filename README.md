@@ -7,7 +7,7 @@
 | 🍣 回转寿司大作战 | Canvas 街机射击：瞄准传送带上的寿司，完成顾客点单，别打芥末 | `site/sushi/` |
 | 🧩 AI图标消消乐 | 8×8 三消：交换 AI 工具图标凑三连，四连/五连生成特殊图标 | `site/match3/` |
 | 📡 深夜电台 · 摩尔斯电码 | 三个模块：**发报**（用电键发码）· **抄收**（听或看码解码）· **数字**（数字编码+解码） | `site/morse/` |
-| 🚗 开车不要压井盖儿 | Canvas 夜间躲避：**车轮压到井盖就算输**，并线躲盖、擦边拿惊险奖励、连击倍率、10 关 + 无尽 | `site/manhole/` |
+| 🚗 开车不要压井盖儿 | Canvas 夜间躲避：**车轮压到井盖就算输**，并线躲盖、擦边拿惊险奖励、连击倍率、10 关 + 无尽；**车库六辆车**（自行车→赛车：速度/宽度/转向/倍率各不相同，金币跨局累计解锁） | `site/manhole/` |
 
 线上地址：**https://freall.github.io/mini-games/**（门户 → 各游戏独立子页）
 
@@ -67,13 +67,13 @@
 | `node verify-site.mjs` | 结构自检（详见下） |
 | `node verify-site.mjs --selftest` | 注入 4 类缺陷，验证自检本身**真的会报警** |
 | `node tools/test-morse-core.mjs` | 摩尔斯核心逻辑单测（113 项断言，纯 node，不需要浏览器） |
-| `node tools/test-manhole-core.mjs` | 井盖核心逻辑单测（181 项断言，含时间窗 DP 的 AI 全关卡可玩性验证） |
+| `node tools/test-manhole-core.mjs` | 井盖核心逻辑单测（244 项断言，含时间窗 DP 的 AI 全关卡可玩性验证 + 每辆车分别过 AI 守门） |
 | `node publish.mjs` | 构建 + 推到 `gh-pages` + 触发 Pages 重建 |
 | `node publish.mjs --dry-run` | 只构建并打印将要发布的提交，不推送 |
 | `node publish.mjs --api` | 强制走 GitHub API 通道发布（git push 不通时用） |
-| `python tools/e2e-smoke.py` | 无头浏览器端到端冒烟（61 项断言：门户跳转 / 四个游戏开局 / 电键发报 / 抄收选答 / 数字编解码 / 井盖操控与压盖判负 / 返回 / 控制台报错） |
+| `python tools/e2e-smoke.py` | 无头浏览器端到端冒烟（67 项断言：门户跳转 / 四个游戏开局 / 电键发报 / 抄收选答 / 数字编解码 / 井盖操控与压盖判负 / 车库换车 / 返回 / 控制台零报错硬断言） |
 | `python tools/e2e-smoke.py --url https://freall.github.io/mini-games` | 同一套断言直接打线上 |
-| `python tools/e2e-smoke.py --single dist/小游戏乐园.html` | 单文件交付版冒烟（file:// + 页内路由，13 项断言，另一条代码路径） |
+| `python tools/e2e-smoke.py --single dist/小游戏乐园.html` | 单文件交付版冒烟（file:// + 页内路由，14 项断言，另一条代码路径） |
 
 > `verify-site.mjs` 查结构（文件、引用、DOM id），`tools/e2e-smoke.py` 查"真的能玩"。
 > 后者不是多余的：多页面改造时它抓出了「消消乐开始界面被裁剪、开始按钮点不到」的 P0；
@@ -231,6 +231,22 @@ site/ 里有没被引用的残留文件 —— 都会直接报错或告警。
     `C:\Users\cqr\.workbuddy\binaries\node\versions\22.12.0\node.exe verify-site.mjs --selftest`
     （selftest 已改为低搅动实现：每用例只回滚自己动过的文件。）
 
+12. **新参数透传要带上全部下游字段 —— 尤其视觉字段**
+    车辆系统把 `playerParams()` 合成的对象传给判定与渲染两层，
+    初版只带了判定字段（w/h/wheelRadius/steerSpeed），漏了 `body/accent` ——
+    判定全对、单测全绿，渲染层却每帧 `undefined[0]` 报错。
+    更险的是当时冒烟对 pageerror 只打印不计红，差点带着 440 条报错"全绿"收工。
+    → 双保险：① 单测加"每辆车字段齐全"断言；② 冒烟把「控制台/页面零报错」
+    设为硬断言（错 1 条就红）。
+
+13. **车辆化的公平性设计：空间路况对所有车相同，难度用时间窗表达**
+    车辆速度倍率乘进世界滚动速度，行距仍按关卡速度生成 —— 于是**同一条路**
+    对每辆车布局完全一致，快车只是"到达时间被压缩"（反应窗 = 原窗 / 速度倍率）。
+    公平性体系（行距 ≥ 两次并线）是时间缩放不变的：快车横移也同比变快，
+    不变式在每辆车上保持成立 —— 单测里 AI 对 6 辆车分别跑守门用例验证这一点。
+    若改成"只有纵向变快、横向不变"，快车会物理不可解；若"横纵都不乘"，
+    速度就只剩视觉效果没有玩法意义。
+
 ---
 
 ## 六、目录速查
@@ -250,6 +266,6 @@ mini-games/
 ├─ tools/test-manhole-core.mjs 井盖核心逻辑单测（纯 node：判定/生成/计分/时间窗 DP AI 可玩性）
 ├─ site/                    （git 忽略）多页面产物，也是 Pages 发布内容
 ├─ dist/                    （git 忽略）单文件交付版
-├─ history/                 版本台账（v1…v5 与 MANIFEST.md）
+├─ history/                 版本台账（v1…v7 与 MANIFEST.md）
 └─ games/                   早期单机版残留（v1 寿司页副本），未被构建引用
 ```

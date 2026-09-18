@@ -1,0 +1,216 @@
+/* ============================================================
+   深夜电台 · 摩尔斯电码 · 纯逻辑核心
+   SECTION: morse-core
+   ------------------------------------------------------------
+   这里不碰任何 DOM：判定、选词、计分、熟练度全在这，
+   可以脱离浏览器直接用 node 跑断言（tools/test-morse-core.mjs）。
+   ============================================================ */
+window.MORSE_CORE = (function () {
+  'use strict';
+
+  var D = window.MORSE_DATA;
+
+  /* 电键判定阈值：按下时长 < DOT_MAX_MS 算点，否则算划。
+     松手后静默超过 GAP_MS 就把已敲的码作为一个字符提交（真实摩尔斯就是这个规矩）。 */
+  var DOT_MAX_MS = 200;
+  var GAP_MS = 560;
+
+  var MASTERY_MAX = 10;     // 单字符熟练度上限
+  var MASTERY_PASS = 6;     // ≥ 此值算"已掌握"
+
+  function classify(ms) { return ms < DOT_MAX_MS ? '.' : '-'; }
+
+  function codeOf(ch) { var e = D.BY_CHAR[ch]; return e ? e.code : ''; }
+  function charOf(code) { var e = D.BY_CODE[code]; return e ? e.ch : ''; }
+  function isValidCode(code) { return !!D.BY_CODE[code]; }
+
+  function pick(arr, rng) { return arr[Math.floor(rng() * arr.length)]; }
+
+  /* 拼一个指定长度、且一定包含 ch 的串（用于"错过的字必被再考"） */
+  function withChar(ch, chars, msgLen, rng) {
+    var at = Math.floor(rng() * Math.max(1, msgLen));
+    var out = '';
+    for (var i = 0; i < msgLen; i++) { out += (i === at ? ch : pick(chars, rng)); }
+    return out;
+  }
+
+  /* SECTION: 选词
+     只用本关已解锁字符组成的词；若给了待复习字符，优先挑含它们的词
+     （简化的间隔重复：刚答错的，后面几轮会再遇到）。
+     词库里确实没有含待复习字符的短词时，直接拼一个带上它 ——
+     否则"错字会再考"这个承诺在短词阶段根本不会兑现。 */
+  function pickWord(chars, msgLen, rng, review) {
+    var has = {};
+    for (var i = 0; i < chars.length; i++) { has[chars[i]] = true; }
+    var pool = [];
+    for (var j = 0; j < D.WORDS.length; j++) {
+      var w = D.WORDS[j];
+      if (w.length < 2 || w.length > msgLen) { continue; }
+      var ok = true;
+      for (var k = 0; k < w.length; k++) { if (!has[w[k]]) { ok = false; break; } }
+      if (ok) { pool.push(w); }
+    }
+
+    if (review && review.length) {
+      var usable = [];
+      for (var r = 0; r < review.length; r++) { if (has[review[r]]) { usable.push(review[r]); } }
+      if (usable.length) {
+        var want = [];
+        for (var m = 0; m < pool.length; m++) {
+          for (var n = 0; n < usable.length; n++) {
+            if (pool[m].indexOf(usable[n]) >= 0) { want.push(pool[m]); break; }
+          }
+        }
+        if (want.length) { pool = want; }
+        else { return withChar(usable[Math.floor(rng() * usable.length)], chars, msgLen, rng); }
+      }
+    }
+    if (pool.length) { return pick(pool, rng); }
+
+    /* 兜底：候选词为空（某关字符少且长度限制紧）时随机拼一个 */
+    return withChar(pick(chars, rng), chars, msgLen, rng);
+  }
+
+  /* 数字电文（解锁数字后才有） */
+  function pickNumber(msgLen, rng) {
+    var pool = [];
+    for (var i = 0; i < D.NUM_WORDS.length; i++) {
+      if (D.NUM_WORDS[i].length <= msgLen) { pool.push(D.NUM_WORDS[i]); }
+    }
+    return pool.length ? pick(pool, rng) : '73';
+  }
+
+  /* SECTION: buildPlan · 出这一关的电文
+     返回 { config, messages: [...] }，messages 里每条是要发的一串字符 */
+  function buildPlan(level, rng, review, mastery) {
+    rng = rng || Math.random;
+    review = review || [];
+    var cfg = D.levelConfig(level);
+    var chars = D.charsForGroups(cfg.groups);
+    var messages = [];
+    for (var i = 0; i < cfg.messages; i++) {
+      var useNum = cfg.groups >= 6 && rng() < 0.25;
+      messages.push(useNum ? pickNumber(cfg.msgLen, rng) : pickWord(chars, cfg.msgLen, rng, review));
+    }
+    return { config: cfg, chars: chars, messages: messages };
+  }
+
+  /* SECTION: 计分 */
+  function comboMult(combo) { return Math.min(5, 1 + Math.floor(combo / 3)); }
+
+  /* 信号强度只是趣味化的连击展示：S1~S9 */
+  function signalStrength(combo) { return Math.min(9, 1 + combo); }
+
+  /* 一个字符得分：基础分 × 连击倍率 × 速度系数；用过辅助（重放/看码）打对折 */
+  function scoreFor(o) {
+    var base = (o.base || 10) * comboMult(o.combo);
+    var pace = o.paceMs || 3000;
+    var speed = o.elapsedMs <= pace ? 1.5 : (o.elapsedMs <= pace * 2 ? 1 : 0.6);
+    var v = base * speed * (o.helped ? 0.5 : 1);
+    return Math.max(1, Math.round(v));
+  }
+
+  /* SECTION: 抄收（解码）——发报速度与选项干扰项
+     标准摩尔斯速度：一个点的时长 = 1.2s / WPM（WPM=5 → 240ms，WPM=12 → 100ms）。 */
+  function unitMs(wpm) { return Math.round(1200 / Math.max(3, wpm)); }
+
+  /* 两个码"像不像"：长度差 + 逐位不同的位数（数字是码长差，字母多为一位之差） */
+  function codeDistance(a, b) {
+    var n = Math.min(a.length, b.length), d = Math.abs(a.length - b.length);
+    for (var i = 0; i < n; i++) { if (a[i] !== b[i]) { d++; } }
+    return d;
+  }
+
+  function shuffle(arr, rng) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  /* 出选择题：正确项 + 若干个"形近"干扰项。
+     先按码的相似度排序，只从最近的 2×count 个里随机抽取 ——
+     既保证干扰项够像（错得有价值），又不会每次都出同一组选项。 */
+  function pickOptions(targetCh, pool, count, rng) {
+    rng = rng || Math.random;
+    var target = codeOf(targetCh);
+    var others = [];
+    for (var i = 0; i < pool.length; i++) { if (pool[i] !== targetCh) { others.push(pool[i]); } }
+    others.sort(function (a, b) { return codeDistance(codeOf(a), target) - codeDistance(codeOf(b), target); });
+    var cand = others.slice(0, Math.min(others.length, Math.max(count, count * 2)));
+    shuffle(cand, rng);
+    var picked = cand.slice(0, Math.max(0, count - 1));
+    return shuffle([targetCh].concat(picked), rng);
+  }
+
+  /* SECTION: 数字专项 —— 编码/解码交替出题
+     encode：给数字，用电键把它的码发出来
+     decode：听/看码，从 0~9 里选出是哪个数字 */
+  function digitPlan(level, rng) {
+    rng = rng || Math.random;
+    var cfg = D.digitConfig(level);
+    var out = [];
+    for (var i = 0; i < cfg.rounds; i++) {
+      var ch = String(Math.floor(rng() * 10));
+      out.push({ type: (i % 2 === 0) ? 'encode' : 'decode', ch: ch });
+    }
+    return { config: cfg, rounds: out, chars: '0123456789'.split('') };
+  }
+
+  /* SECTION: 抄收出题（与发报共用同一套解锁字符） */
+  function recvPlan(level, rng, review) {
+    rng = rng || Math.random;
+    var cfg = D.recvConfig(level);
+    var chars = D.charsForGroups(cfg.groups);
+    var rounds = [];
+    for (var i = 0; i < cfg.rounds; i++) {
+      /* 待复习字符优先出现（错过的码更该多听几遍） */
+      var ch;
+      var usable = [];
+      for (var r = 0; r < (review || []).length; r++) {
+        if (chars.indexOf(review[r]) >= 0) { usable.push(review[r]); }
+      }
+      if (usable.length && rng() < 0.5) { ch = usable[Math.floor(rng() * usable.length)]; }
+      else { ch = chars[Math.floor(rng() * chars.length)]; }
+      var options = pickOptions(ch, chars, Math.min(cfg.options, chars.length), rng);
+      rounds.push({ ch: ch, options: options });
+    }
+    return { config: cfg, chars: chars, rounds: rounds };
+  }
+
+  /* SECTION: 熟练度与掌握进度 */
+  function masteryStep(cur, ok) {
+    var v = cur | 0;
+    return ok ? Math.min(MASTERY_MAX, v + 2) : Math.max(0, v - 1);
+  }
+  function masteredCount(mastery, chars) {
+    var n = 0;
+    for (var i = 0; i < chars.length; i++) {
+      if ((mastery[chars[i]] | 0) >= MASTERY_PASS) { n++; }
+    }
+    return n;
+  }
+  /* 待复习队列：答错的字符压进去，只留最近 5 个不重复项 */
+  function reviewPush(queue, ch) {
+    var out = [];
+    for (var i = 0; i < queue.length; i++) { if (queue[i] !== ch) { out.push(queue[i]); } }
+    out.push(ch);
+    while (out.length > 5) { out.shift(); }
+    return out;
+  }
+  function accuracy(okCount, total) { return total ? Math.round((okCount / total) * 100) : 100; }
+
+  return {
+    DOT_MAX_MS: DOT_MAX_MS, GAP_MS: GAP_MS,
+    MASTERY_MAX: MASTERY_MAX, MASTERY_PASS: MASTERY_PASS,
+    classify: classify, codeOf: codeOf, charOf: charOf, isValidCode: isValidCode,
+    pickWord: pickWord, pickNumber: pickNumber, buildPlan: buildPlan,
+    comboMult: comboMult, signalStrength: signalStrength, scoreFor: scoreFor,
+    masteryStep: masteryStep, masteredCount: masteredCount,
+    reviewPush: reviewPush, accuracy: accuracy,
+    /* 抄收 / 数字专项 */
+    unitMs: unitMs, codeDistance: codeDistance, shuffle: shuffle,
+    pickOptions: pickOptions, recvPlan: recvPlan, digitPlan: digitPlan
+  };
+})();

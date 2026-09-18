@@ -685,8 +685,13 @@ ok('完全不操作会压到井盖（井盖真的构成威胁）', idleHit || w1
            逐行向前推，任何一行推不出有限值就说明这一关在那一点上是死局。
    然后把 DP 的结论（每一行该走哪条道）交给横向控制器执行 ——
    控制器只有真实横向速度上限（steerSpeed），不做任何瞬移，跑的是真物理。 */
-const MAX_STEER = D.PLAYER.steerSpeed * C.laneWidth(D, 4);   // px/s
-const LANE_SWITCH_S = C.laneWidth(D, 4) / MAX_STEER;         // 换一条车道的纯移动耗时
+const MAX_STEER_BASE = D.PLAYER.steerSpeed * C.laneWidth(D, 4);   // px/s（小轿车基准）
+const LANE_SWITCH_S_BASE = C.laneWidth(D, 4) / MAX_STEER_BASE;    // 换一条车道的纯移动耗时
+
+/* 车辆化版本：横移速度上限与换道耗时按世界实例的车算。
+   快车纵向也快 → 时间窗按绝对秒数算时会自动收紧，公平性体系不变。 */
+function maxSteerOf(sim) { return sim.veh.steerSpeed * C.laneWidth(D, sim.lanes); }
+function laneSwitchSOf(sim) { return C.laneWidth(D, sim.lanes) / maxSteerOf(sim); }
 
 /* 把前方井盖按"行"归并（同一批生成的 y 相近），按离车的距离由近到远排序。
 
@@ -709,8 +714,8 @@ const LANE_SWITCH_S = C.laneWidth(D, 4) / MAX_STEER;         // 换一条车道�
 function upcomingRows(sim, maxRows) {
   const lookahead = Math.max(600, sim.curSpeed() * 1.6);   // 至少前瞻 1.6 秒的路程
   const r = C.manholeRadius(D, sim.lanes);
-  const topY = D.PLAYER.y - D.PLAYER.h / 2 - lookahead;    // 能看见多远
-  const bottomY = D.PLAYER.y + D.PLAYER.h / 2 + r;         // 车尾之后才算"通过"
+  const topY = D.PLAYER.y - sim.veh.h / 2 - lookahead;     // 能看见多远（车长按当前车）
+  const bottomY = D.PLAYER.y + sim.veh.h / 2 + r;          // 车尾之后才算"通过"
   const marks = sim.obs.filter(o => o.kind === 'manhole' && o.y > topY && o.y < bottomY);
   marks.sort((a, b) => b.y - a.y);                // y 越大越靠近车
   const rows = [];
@@ -739,6 +744,7 @@ function planLanes(sim, rows) {
   /* feasibleAt[i][l] = "在第 i 行走车道 l，且从这一行往后全部能过"
      从最后一行往回推（先看远处再定近处，才不会被眼前的缝骗进去）。 */
   const feasibleAt = new Array(n);
+  const SWITCH_S = laneSwitchSOf(sim);
   for (let i = n - 1; i >= 0; i--) {
     const cur = new Array(sim.lanes).fill(false);
     for (let l = 0; l < sim.lanes; l++) {
@@ -747,7 +753,7 @@ function planLanes(sim, rows) {
       const budget = tArr[i + 1] - tArr[i];
       for (let l2 = 0; l2 < sim.lanes; l2++) {
         if (!feasibleAt[i + 1][l2]) { continue; }
-        if (Math.abs(l2 - l) * LANE_SWITCH_S <= budget) { cur[l] = true; break; }
+        if (Math.abs(l2 - l) * SWITCH_S <= budget) { cur[l] = true; break; }
       }
     }
     feasibleAt[i] = cur;
@@ -759,6 +765,7 @@ function planLanes(sim, rows) {
      只有在"当前车道对某一行不可行"时，才去挑一条 **可行、来得及到、且离自己最近** 的。 */
   const picks = new Array(n).fill(-1);
   let from = C.laneOfX(D, sim.lanes, sim.carX);
+  const SWITCH_S2 = laneSwitchSOf(sim);
   /* 当前位置到第 0 行的期限，用于判断"来不来得及" */
   for (let i = 0; i < n; i++) {
     const deadline = i === 0 ? tArr[0] : (tArr[i] - tArr[i - 1]);
@@ -767,7 +774,7 @@ function planLanes(sim, rows) {
     for (let l = 0; l < sim.lanes; l++) {
       if (!feasibleAt[i][l]) { continue; }
       const d = Math.abs(l - from);
-      if (d * LANE_SWITCH_S > deadline) { continue; }
+      if (d * SWITCH_S2 > deadline) { continue; }
       if (d < bestD) { bestD = d; best = l; }
     }
     if (best < 0) { return { lanes: picks, ok: false, failRow: i }; }
@@ -803,8 +810,8 @@ function planLanes(sim, rows) {
 
    ③ 目标车道用"开到位才算数"维护，不看瞬间车心（车停在分界线上时
       laneOfX 会每帧跳变，导致目标翻转、车原地抖动被夹死）。 */
-function autoPlay(level, seed) {
-  const sim = new C.World(D, level, seededRng(seed)).start();
+function autoPlay(level, seed, vehicleId) {
+  const sim = new C.World(D, level, seededRng(seed), { vehicleId: vehicleId || 'sedan' }).start();
   const dt = 1 / 60;
   let deadlock = null;
   let target = C.laneOfX(D, sim.lanes, sim.carX);
@@ -830,7 +837,7 @@ function autoPlay(level, seed) {
           if (p.lanes[k] !== target) { want = p.lanes[k]; wantIdx = k; break; }
         }
         if (wantIdx >= 0) {
-          const need = Math.abs(want - target) * LANE_SWITCH_S * 1.05;
+          const need = Math.abs(want - target) * laneSwitchSOf(sim) * 1.05;
           /* 时间够 + 前面这几行不会挡住换道路径，才动身 */
           const path = crossedLanes(target, want);
           let blocked = false;
@@ -845,7 +852,7 @@ function autoPlay(level, seed) {
       }
       const tx = C.laneCenterX(D, sim.lanes, target);
       if (Math.abs(sim.carX - tx) > TOL) {
-        const maxStep = MAX_STEER * dt;
+        const maxStep = maxSteerOf(sim) * dt;
         sim.setCarX(sim.carX + Math.max(-maxStep, Math.min(maxStep, tx - sim.carX)));
       }
     }
@@ -919,6 +926,152 @@ ok('音效导出齐全',
     .every(k => typeof D.Audio[k] === 'function'));
 ok('设计空间尺寸合理', D.LAYOUT.W > 0 && D.LAYOUT.H > 0);
 ok('路面两侧都留了路肩', D.ROAD.marginX > 0 && D.ROAD.marginX * 2 < D.LAYOUT.W);
+
+/* ============================================================
+   8.5 车辆系统（车库）
+   ------------------------------------------------------------
+   每辆车都不止是换皮：速度倍率乘进世界滚动速度（空间路况对每辆车相同，
+   快车只是到达时间被压缩）、横移速度按车辆灵活度缩放、判定用车身的
+   真实宽度/长度/轮径。这一节守三条命门：
+     a) 每辆车的判定不变式都成立（窄车也不能让井盖"钻过去"）；
+     b) 默认车（小轿车）行为与旧版逐位一致（向后兼容）；
+     c) AI 守门对每辆车分别通关 —— 公平性体系是时间缩放不变的，
+        这个断言就是它的验证。（车辆参数改坏最常先在这里爆。）
+   ============================================================ */
+section('车辆表完整性');
+const VEH_IDS = ['bike', 'ebike', 'sedan', 'suv', 'moto', 'race'];
+eq('车辆表共 6 辆', D.VEHICLES.length, 6);
+eq('车辆 id 齐全', D.VEHICLES.map(v => v.id).join(','), VEH_IDS.join(','));
+eq('车辆 id 无重复', new Set(D.VEHICLES.map(v => v.id)).size, 6);
+let vehFieldOk = true, vehFieldDetail = '';
+for (const v of D.VEHICLES) {
+  if (!(v.name && v.art && v.speed > 0 && v.steer > 0 && v.w > 0 && v.h > 0 &&
+        v.wheelRadius > 0 && v.mult > 0 && v.price >= 0 && v.body && v.body.length === 4)) {
+    vehFieldOk = false; vehFieldDetail = v.id + ' 字段缺失'; break;
+  }
+}
+ok('每辆车字段齐全（速度/操控/宽长/轮径/倍率/价格/配色）', vehFieldOk, vehFieldDetail);
+eq('vehicleById 未知 id 回落到小轿车', D.vehicleById('nope').id, 'sedan');
+eq('price=0 的车恰好是初始可用车（bike+sedan）',
+  D.VEHICLES.filter(v => v.price === 0).map(v => v.id).sort().join(','), 'bike,sedan');
+/* 风险定价的基准是速度（ebike 定位就是"慢、稳、低倍率"，价格高不等于倍率高）：
+   按速度排序后倍率单调不减，且最快的三辆车倍率都 > 1 */
+const bySpeed = D.VEHICLES.slice().sort((a, b) => a.speed - b.speed);
+let multMono = true;
+for (let i = 1; i < bySpeed.length; i++) { if (bySpeed[i].mult < bySpeed[i - 1].mult) { multMono = false; break; } }
+ok('倍率随速度单调不减（风险定价成立）', multMono,
+  bySpeed.map(v => `${v.id}:${v.speed}/${v.mult}`).join(' '));
+ok('最快的二辆车倍率都 > 1（快是真实风险，收益也是真实的）',
+  D.vehicleById('suv').mult > 1 && D.vehicleById('moto').mult > 1 && D.vehicleById('race').mult > 1);
+ok('速度范围合理（0.7~1.5 倍，别把公平性拉爆）',
+  D.VEHICLES.every(v => v.speed >= 0.7 && v.speed <= 1.5));
+
+section('每辆车的判定不变式');
+const laneW = C.laneWidth(D, 4);
+const mhDiam = C.manholeRadius(D, 4) * 2;
+for (const v of D.VEHICLES) {
+  const P = C.playerParams(D, v.id);
+  const cwV = C.carWidth(D, 4, P);
+  const cxV = C.laneCenterX(D, 4, 1);
+  /* 车宽必须卡在"车道宽之内、井盖直径之上" —— 否则要么过不了缝，要么车身覆盖判定失效 */
+  ok(`[${v.id}] 车宽 ${cwV.toFixed(1)} ∈ (${mhDiam}, ${laneW.toFixed(1)})`,
+    cwV < laneW && cwV > mhDiam, `carW=${cwV.toFixed(2)}`);
+  /* 车轮贴在车身两侧、不外扩、左右对称 */
+  const wsV = C.wheels(D, 4, cxV, D.PLAYER.y, P);
+  ok(`[${v.id}] 车轮在车身覆盖范围内`,
+    wsV[0].x - wsV[0].r >= cxV - cwV / 2 - 1e-9 && wsV[1].x + wsV[1].r <= cxV + cwV / 2 + 1e-9);
+  /* 命门：井盖在车底正中 → 必算压到（窄车的轮距更窄，靠轮判定兜底；
+     宽车轮距超过井盖直径，靠车身覆盖兜底 —— 两条腿缺一不可） */
+  eq(`[${v.id}] 井盖在车底正中 → 压到`, C.carHits(D, 4, cxV, D.PLAYER.y, { x: cxV, y: D.PLAYER.y, r: mhDiam / 2 }), true);
+  eq(`[${v.id}] 车底正中 underBody 成立`, C.underBody(D, 4, cxV, D.PLAYER.y, { x: cxV, y: D.PLAYER.y, r: mhDiam / 2 }, P), true);
+  /* 横扫路面：占用车道与实际判定始终自洽（窄车更容易只占一条道） */
+  let occOk = true;
+  for (let x = C.roadLeft(D); x <= C.roadRight(D); x += 3) {
+    const occ = C.occupiedLanes(D, 4, x, P);
+    for (let l = 0; l < 4; l++) {
+      const o = { x: C.laneCenterX(D, 4, l), y: D.PLAYER.y, r: mhDiam / 2 };
+      if (C.carHits(D, 4, x, D.PLAYER.y, o, P) && occ.indexOf(l) < 0) { occOk = false; break; }
+    }
+    if (!occOk) { break; }
+  }
+  ok(`[${v.id}] 压到某车道井盖时 occupiedLanes 必含该车道`, occOk);
+  /* 车长参与车身判定：车头前方恰好外切算捡到（dy = r），再远一点就捡不到 */
+  ok(`[${v.id}] 车身判定用车长（车头前方 half 车长内贴上算捡到）`,
+    C.carBodyHits(D, 4, cxV, D.PLAYER.y, { x: cxV, y: D.PLAYER.y + P.h / 2 + 9, r: 9 }, P) === true &&
+    C.carBodyHits(D, 4, cxV, D.PLAYER.y, { x: cxV, y: D.PLAYER.y + P.h / 2 + 40, r: 9 }, P) === false);
+}
+
+section('playerParams 参数合成');
+const sedanP = C.playerParams(D, 'sedan');
+near('小轿车 steerSpeed = 基准（向后兼容）', sedanP.steerSpeed, D.PLAYER.steerSpeed, 1e-9);
+near('小轿车 speed = 1', sedanP.speed, 1, 1e-9);
+eq('小轿车 mult = 1', sedanP.mult, 1);
+eq('playerParams 未知 id → 小轿车', C.playerParams(D, '???').id, 'sedan');
+const bikeP = C.playerParams(D, 'bike');
+near('自行车 steerSpeed = 基准 × 1.22', bikeP.steerSpeed, D.PLAYER.steerSpeed * D.vehicleById('bike').steer, 1e-9);
+near('自行车 speed = 0.82', bikeP.speed, D.vehicleById('bike').speed, 1e-9);
+eq('车辆倍率透传到 playerParams', C.playerParams(D, 'race').mult, D.vehicleById('race').mult);
+
+section('World 车辆接入');
+/* 速度倍率：同关卡同种子，赛车的世界速度 = 关卡速度 × 1.32 */
+const wr = new C.World(D, 1, seededRng(41), { vehicleId: 'race' }).start();
+near('赛车的世界速度 = 关卡速度 × 车辆倍率', wr.speed, D.levelConfig(1).speed * D.vehicleById('race').speed, 1e-9);
+/* 同样跑 2 秒（保护期内无井盖），快车里程更多 —— 速度差异真实生效 */
+const wb = new C.World(D, 1, seededRng(41), { vehicleId: 'bike' }).start();
+wr.update(2.0); wb.update(2.0);
+ok('同样 2 秒，赛车里程 > 自行车（速度真的不一样）', wr.meters > wb.meters * 1.4,
+  `race=${wr.meters.toFixed(1)}m bike=${wb.meters.toFixed(1)}m`);
+/* 分数倍率：路程分 = 米数 × perMeter × mult，两个因子同向放大 */
+ok('同样 2 秒，赛车得分 > 自行车（倍率真实生效）', wr.score > wb.score * 1.8,
+  `race=${wr.score.toFixed(0)} bike=${wb.score.toFixed(0)}`);
+/* 不传 vehicleId 的旧调用 = 小轿车（向后兼容） */
+const wOld = new C.World(D, 1, seededRng(41)).start();
+eq('不传 vehicleId → 默认小轿车', wOld.veh.id, 'sedan');
+/* 横移：自行车更灵活 —— 同样 steer 0.5 秒，位移更大 */
+const wb2 = new C.World(D, 1, seededRng(41), { vehicleId: 'bike' }).start();
+const wsed = new C.World(D, 1, seededRng(41), { vehicleId: 'sedan' }).start();
+const x0b = wb2.carX, x0s = wsed.carX;
+wb2.steer = 1; wsed.steer = 1;
+wb2.update(0.5); wsed.update(0.5);
+ok('同样打 0.5 秒方向，自行车横移 > 小轿车（灵活性生效）',
+  Math.abs(wb2.carX - x0b) > Math.abs(wsed.carX - x0s),
+  `bike=${Math.abs(wb2.carX - x0b).toFixed(1)} sedan=${Math.abs(wsed.carX - x0s).toFixed(1)}`);
+/* 捡金币：金币计数 + 分数按车辆倍率 */
+const wc = new C.World(D, 1, seededRng(41), { vehicleId: 'race' }).start();
+wc.obs = [{ kind: 'coin', x: wc.carX, y: D.PLAYER.y, r: 15 }];
+const evc = wc.update(0.016);
+eq('赛车捡 1 枚金币 → coins = 1', wc.coins, 1);
+eq('赛车金币分 = 基础 × 车辆倍率', evc.find(e => e.t === 'pickup').gain,
+  Math.round(D.SCORE.coin * D.vehicleById('race').mult));
+/* statsOf 带出车辆信息（结算/自动化断言用） */
+const stV = C.statsOf(wc);
+eq('statsOf.vehicle = 车辆 id', stV.vehicle, 'race');
+ok('statsOf 带 vehName / vehMult / coins', stV.vehName === '赛车' && stV.vehMult === D.vehicleById('race').mult && stV.coins === 1);
+/* 宽车把车身极限用满：越野车贴路肩时轮子也不出路面 */
+const wSuv = new C.World(D, 1, seededRng(41), { vehicleId: 'suv' }).start();
+wSuv.setCarX(-9999);
+const wsSuv = C.wheels(D, 4, wSuv.carX, D.PLAYER.y, wSuv.veh);
+ok('越野车贴最左时车轮不出路肩', wsSuv[0].x - wsSuv[0].r >= C.roadLeft(D) - 1e-9,
+  `wheelLeft=${(wsSuv[0].x - wsSuv[0].r).toFixed(1)} roadLeft=${C.roadLeft(D)}`);
+
+/* SECTION: AI 守门 · 按车验证
+   公平性体系是时间缩放不变的：速度倍率同时作用于纵向与横向，
+   "行距 ≥ 两次并线"的关系在每辆车上保持成立。这个断言就是验证 ——
+   每辆车在早/中/晚关都由时间窗 DP + 真实横移速度的 AI 通关。 */
+let vehAiRuns = 0, vehAiWins = 0, vehAiDetail = [];
+for (const v of D.VEHICLES) {
+  for (const lv of [1, 5, 10]) {
+    for (let s = 1; s <= 3; s++) {
+      const r = autoPlay(lv, lv * 700 + s * 17 + 1, v.id);
+      vehAiRuns++;
+      if (r.won) { vehAiWins++; }
+      else { vehAiDetail.push(`${v.id}@lv${lv}#${s} 挂在 ${Math.round(r.meters)}m`); }
+    }
+  }
+}
+ok('AI 用每辆车的参数都能通关（公平性对全部车辆成立）', vehAiWins === vehAiRuns,
+  `${vehAiWins}/${vehAiRuns}` + (vehAiDetail.length ? '；失败：' + vehAiDetail.slice(0, 4).join(' / ') : ''));
+
 
 /* ============================================================
    9. 渲染层对 core/data 的调用是否都存在（静态扫描）

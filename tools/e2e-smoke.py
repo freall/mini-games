@@ -148,6 +148,10 @@ def run_single(path):
     log('\n'.join(errors) if errors else '（无）')
     log('')
     log('=== 断言汇总 ===')
+    # 控制台/页面报错必须为零 —— 只打印不计红的话，"判定全对但渲染层每帧
+    # undefined[0]" 这类 bug 会带着 440 条 pageerror 冒充全绿（真实踩过）。
+    results.append(('控制台/页面零报错', len(errors) == 0,
+                    ('%d 条，首条: %s' % (len(errors), errors[0][:72])) if errors else ''))
     bad = 0
     for name, ok, extra in results:
         if not ok:
@@ -521,12 +525,32 @@ def main():
                         'show' in (pg.locator('#mhOvStart').get_attribute('class') or ''), ''))
         hit = pg.evaluate(HITTABLE, 'mhBtnStart')
         results.append(('井盖页 上路按钮可点', hit == 'OK', hit))
+
+        # 车库：不同车不同速度/样式/倍率 —— 卡片渲染、默认选中、点击换车、存档落盘
+        n_veh = pg.evaluate("() => document.querySelectorAll('#mhGarage .mh-veh').length")
+        results.append(('井盖页 车库渲染 6 辆车', n_veh == 6, 'n=%s' % n_veh))
+        sel0 = pg.evaluate("() => { const n = document.querySelector('#mhGarage .mh-veh.sel'); return n ? n.getAttribute('data-veh') : null; }")
+        results.append(('井盖页 默认选中小轿车', sel0 == 'sedan', 'sel=%s' % sel0))
+        # 注入已解锁状态后点赛车卡 → 应变选中并存档
+        pg.evaluate("() => { try { localStorage.setItem('manhole-coins','5000');"
+                    " localStorage.setItem('manhole-garage','bike,sedan,race');"
+                    " localStorage.setItem('manhole-vehicle','sedan'); } catch(e){} }")
+        pg.reload(wait_until='load')
+        pg.wait_for_timeout(700)
+        pg.locator('#mhGarage .mh-veh[data-veh="race"]').click()
+        pg.wait_for_timeout(150)
+        sel1 = pg.evaluate("() => document.querySelector('#mhGarage .mh-veh.sel').getAttribute('data-veh')")
+        results.append(('井盖页 点击车库卡片可换车', sel1 == 'race', 'sel=%s' % sel1))
+        vid = pg.evaluate("() => localStorage.getItem('manhole-vehicle')")
+        results.append(('井盖页 换车写入存档', vid == 'race', 'vehicle=%s' % vid))
+
         pg.screenshot(path=os.path.join(SHOTS, 'manhole-start.png'))
 
         pg.locator('#mhBtnStart').click()
         pg.wait_for_timeout(2400)     # 等倒计时走完进入 play
         st = pg.evaluate("() => window.MANHOLE_APP.stats()")
         results.append(('井盖页 开局后进入 play', st.get('phase') == 'play', 'phase=%s' % st.get('phase')))
+        results.append(('井盖页 用选中的车上路', st.get('vehicle') == 'race', 'vehicle=%s' % st.get('vehicle')))
         results.append(('井盖页 开始层已隐藏',
                         'show' not in (pg.locator('#mhOvStart').get_attribute('class') or ''), ''))
         px = pg.evaluate("""() => { const c = document.getElementById('mhCanvas'); const g = c.getContext('2d');
@@ -605,6 +629,10 @@ def main():
     log('\n'.join(errors) if errors else '（无）')
     log('')
     log('=== 断言汇总 ===')
+    # 控制台/页面报错必须为零 —— 只打印不计红的话，"判定全对但渲染层每帧
+    # undefined[0]" 这类 bug 会带着 440 条 pageerror 冒充全绿（真实踩过）。
+    results.append(('控制台/页面零报错', len(errors) == 0,
+                    ('%d 条，首条: %s' % (len(errors), errors[0][:72])) if errors else ''))
     bad = 0
     for name, ok, extra in results:
         if not ok:
