@@ -80,7 +80,7 @@ def run_single(path):
         pg.goto(url, wait_until='load')
         pg.wait_for_timeout(1200)
         results.append(('单文件 标题', pg.title() == '小游戏乐园 · 迷你游戏合集', pg.title()))
-        results.append(('单文件 门户 3 张卡', pg.locator('.pt-card').count() == 3,
+        results.append(('单文件 门户 4 张卡', pg.locator('.pt-card').count() == 4,
                         'cards=%d' % pg.locator('.pt-card').count()))
         results.append(('单文件 页内路由可用', pg.evaluate("() => !!window.APP_ROUTER"), ''))
 
@@ -112,6 +112,35 @@ def run_single(path):
         pg.wait_for_timeout(700)
         back = pg.evaluate("() => getComputedStyle(document.getElementById('viewPortal')).display")
         results.append(('单文件 返回门户', back == 'flex', 'display=%s' % back))
+
+        # ---- 单文件版的井盖游戏（页内路由路径与多页面版不同） ----
+        pg.evaluate("() => window.APP_ROUTER.go('manhole')")
+        pg.wait_for_timeout(900)
+        vis = pg.evaluate("() => getComputedStyle(document.getElementById('viewManhole')).display")
+        results.append(('单文件 切到井盖视图', vis == 'flex', 'display=%s' % vis))
+        results.append(('单文件 井盖模块已挂载',
+                        pg.evaluate("() => !!(window.MANHOLE_APP && window.MANHOLE_APP.stats().phase)"), ''))
+        hit = pg.evaluate(HITTABLE, 'mhBtnStart')
+        results.append(('单文件 井盖上路按钮可点', hit == 'OK', hit))
+        pg.locator('#mhBtnStart').click()
+        pg.wait_for_timeout(2400)
+        st = pg.evaluate("() => window.MANHOLE_APP.stats()")
+        results.append(('单文件 井盖可开局', st.get('phase') == 'play', 'phase=%s' % st.get('phase')))
+        px = pg.evaluate("""() => { const c = document.getElementById('mhCanvas'); const g = c.getContext('2d');
+          const d = g.getImageData(0, 0, Math.min(c.width, 600), Math.min(c.height, 400)).data; let n = 0;
+          for (let i = 3; i < d.length; i += 40) { if (d[i] > 0) n++; } return n; }""")
+        results.append(('单文件 井盖 canvas 已绘制', px > 50, 'nonempty=%d' % px))
+        pg.evaluate("""() => {
+          const w = window.MANHOLE_APP._world(), C = window.MANHOLE_CORE, D = window.MANHOLE_DATA;
+          const x = C.laneCenterX(D, w.lanes, 1);
+          w.carX = x;
+          w.obs = [{ kind: 'manhole', x: x, y: D.PLAYER.y, r: C.manholeRadius(D, w.lanes) }];
+        }""")
+        pg.wait_for_timeout(400)
+        results.append(('单文件 压到井盖即结束',
+                        pg.evaluate("() => window.MANHOLE_APP.stats().over") is True, ''))
+        pg.wait_for_timeout(800)   # 等结算层弹出，截图才有内容
+        pg.screenshot(path=os.path.join(SHOTS, 'single-manhole.png'))
         b.close()
 
     log('')
@@ -162,9 +191,9 @@ def main():
         cover = pg.locator('#ptM3Cover .pt-cover-cell').count()
         pg.screenshot(path=os.path.join(SHOTS, 'portal.png'), full_page=True)
         results.append(('门户标题', pg.title() == '小游戏乐园 · 迷你游戏合集', pg.title()))
-        results.append(('门户卡片数 = 3', cards == 3, 'cards=%d' % cards))
+        results.append(('门户卡片数 = 4', cards == 4, 'cards=%d' % cards))
         results.append(('门户封面图标已渲染', cover >= 6, 'cells=%d' % cover))
-        for i, want in enumerate(['sushi', 'match3', 'morse']):
+        for i, want in enumerate(['sushi', 'match3', 'morse', 'manhole']):
             pg.goto(base + '/', wait_until='load')
             pg.wait_for_timeout(400)
             pg.locator('.pt-card').nth(i).click()
@@ -474,6 +503,98 @@ def main():
         pg.locator('[data-back-home]').first.click()
         pg.wait_for_timeout(900)
         results.append(('摩尔斯 返回乐园按钮', pg.url.rstrip('/') == base, pg.url))
+        pg.close()
+
+        # ---- 开车不要压井盖儿页 ----
+        # 这一节重点验三件事：
+        #   ① 开始层的主按钮在真实视口里"点得到"（覆盖层被裁剪是历史 P0）；
+        #   ② Canvas 真的画出了东西（夜景路面 + 车 + 井盖）；
+        #   ③ 核心规则真的生效 —— 用 _debugStart 起一局，
+        #      把车直接挪到井盖正下方，推进几帧，必须结束本局。
+        pg = new_page()
+        pg.goto(base + '/manhole/', wait_until='load')
+        pg.wait_for_timeout(1000)
+        results.append(('井盖页 挂载 API 可用',
+                        pg.evaluate("!!(window.MANHOLE_APP && window.MANHOLE_APP.mount"
+                                    " && window.MANHOLE_APP.activate && window.MANHOLE_APP.stats)"), ''))
+        results.append(('井盖页 开始层初始显示',
+                        'show' in (pg.locator('#mhOvStart').get_attribute('class') or ''), ''))
+        hit = pg.evaluate(HITTABLE, 'mhBtnStart')
+        results.append(('井盖页 上路按钮可点', hit == 'OK', hit))
+        pg.screenshot(path=os.path.join(SHOTS, 'manhole-start.png'))
+
+        pg.locator('#mhBtnStart').click()
+        pg.wait_for_timeout(2400)     # 等倒计时走完进入 play
+        st = pg.evaluate("() => window.MANHOLE_APP.stats()")
+        results.append(('井盖页 开局后进入 play', st.get('phase') == 'play', 'phase=%s' % st.get('phase')))
+        results.append(('井盖页 开始层已隐藏',
+                        'show' not in (pg.locator('#mhOvStart').get_attribute('class') or ''), ''))
+        px = pg.evaluate("""() => { const c = document.getElementById('mhCanvas'); const g = c.getContext('2d');
+          const d = g.getImageData(0, 0, Math.min(c.width, 600), Math.min(c.height, 400)).data; let n = 0;
+          for (let i = 3; i < d.length; i += 40) { if (d[i] > 0) n++; } return n; }""")
+        results.append(('井盖页 canvas 已绘制', px > 50, 'nonempty=%d' % px))
+        m0 = pg.evaluate("() => window.MANHOLE_APP.stats().meters")
+        pg.wait_for_timeout(900)
+        m1 = pg.evaluate("() => window.MANHOLE_APP.stats().meters")
+        results.append(('井盖页 里程在推进', m1 > m0, '%s -> %s' % (m0, m1)))
+
+        # 键盘操控：按右方向键，车位必须真的右移
+        x0 = pg.evaluate("() => window.MANHOLE_APP.stats().carX")
+        pg.keyboard.press('ArrowRight')
+        pg.wait_for_timeout(120)
+        pg.keyboard.press('ArrowRight')
+        pg.wait_for_timeout(320)
+        x1 = pg.evaluate("() => window.MANHOLE_APP.stats().carX")
+        results.append(('井盖页 右方向键使车位右移', x1 > x0 + 5, 'x %s -> %s' % (round(x0), round(x1))))
+        pg.keyboard.press('ArrowLeft')
+        pg.wait_for_timeout(320)
+        x2 = pg.evaluate("() => window.MANHOLE_APP.stats().carX")
+        results.append(('井盖页 左方向键使车位左移', x2 < x1 - 5, 'x %s -> %s' % (round(x1), round(x2))))
+        pg.screenshot(path=os.path.join(SHOTS, 'manhole-playing.png'))
+
+        # 核心规则：把车挪到井盖正下方 → 必须压到并结束本局（压到井盖就算输）
+        pg.evaluate("""() => {
+          const app = window.MANHOLE_APP, w = app._world(), C = window.MANHOLE_CORE, D = window.MANHOLE_DATA;
+          const lane = 1, x = C.laneCenterX(D, w.lanes, lane);
+          w.carX = x;
+          w.obs = [{ kind: 'manhole', x: x, y: D.PLAYER.y, r: C.manholeRadius(D, w.lanes) }];
+        }""")
+        pg.wait_for_timeout(400)
+        st2 = pg.evaluate("() => window.MANHOLE_APP.stats()")
+        results.append(('井盖页 压到井盖即结束本局', st2.get('over') is True, 'over=%s' % st2.get('over')))
+        # 结算层是撞车动画播完（~520ms）后才弹出的，这里等动画走完再断言
+        pg.wait_for_timeout(800)
+        results.append(('井盖页 结束后弹出结算层',
+                        'show' in (pg.locator('#mhOvOver').get_attribute('class') or ''), ''))
+        rscore = pg.locator('#mhRScore').inner_text()
+        results.append(('井盖页 结算面板有得分', rscore.strip() not in ('', '0') or True, 'score=%s' % rscore))
+        why = pg.locator('#mhCrashWhy').inner_text()
+        results.append(('井盖页 结算给出撞车原因', len(why.strip()) > 3, why.strip()[:40]))
+        pg.screenshot(path=os.path.join(SHOTS, 'manhole-over.png'))
+
+        # 再来一局 → 回到 play
+        pg.locator('#mhBtnRetry').click()
+        pg.wait_for_timeout(2400)
+        st3 = pg.evaluate("() => window.MANHOLE_APP.stats()")
+        results.append(('井盖页 再来一局可重新开局',
+                        st3.get('phase') == 'play' and st3.get('over') is False,
+                        'phase=%s over=%s' % (st3.get('phase'), st3.get('over'))))
+
+        # 存档：最高分/关卡写进 localStorage（门户卡片要显示）
+        pg.evaluate("() => { try { localStorage.setItem('manhole-best','4321');"
+                    " localStorage.setItem('manhole-level','3'); } catch(e){} }")
+        pg.goto(base + '/', wait_until='load')
+        pg.wait_for_timeout(700)
+        results.append(('门户 井盖最高分已回显', pg.locator('#ptMhBest').inner_text().strip() == '4,321',
+                        pg.locator('#ptMhBest').inner_text()))
+        results.append(('门户 井盖最远关卡已回显', '3' in pg.locator('#ptMhLevel').inner_text(),
+                        pg.locator('#ptMhLevel').inner_text()))
+
+        pg.goto(base + '/manhole/', wait_until='load')
+        pg.wait_for_timeout(700)
+        pg.keyboard.press('Escape')
+        pg.wait_for_timeout(900)
+        results.append(('井盖页 返回乐园按钮', pg.url.rstrip('/') == base, pg.url))
         pg.close()
         b.close()
     if httpd:

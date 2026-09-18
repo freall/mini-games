@@ -75,6 +75,19 @@ export const GAMES = [
       'assets/morse.js',
       'assets/boot.js'
     ]
+  },
+  {
+    id: 'manhole',
+    dir: 'manhole',
+    title: '开车不要压井盖儿 · 小游戏乐园',
+    app: 'MANHOLE_APP',
+    bodyAttrs: ' data-game="manhole" data-home="../"',
+    scripts: [
+      'assets/manhole-data.js',
+      'assets/manhole-core.js',
+      'assets/manhole.js',
+      'assets/boot.js'
+    ]
   }
 ];
 
