@@ -54,10 +54,15 @@
         <div class="mh-rules">
           <div class="mh-rule"><i>🛞</i><span><b>车轮</b>压到井盖算压到（车身正中也算）</span></div>
           <div class="mh-rule"><i>↔️</i><span>点击 / 拖动 / <b>← →</b> 并线躲开</span></div>
-          <div class="mh-rule"><i>💰</i><span>金币加分，<b>贴着井盖擦过去</b>有惊险奖励</span></div>
-          <div class="mh-rule"><i>⭐</i><span>幸运星能<b>顶掉一次</b>压盖</span></div>
-          <div class="mh-rule"><i>🛡️</i><span>护盾短时间<b>撞碎井盖</b>；氮气加速冲分</span></div>
+          <div class="mh-rule"><i>🚗</i><span>车库里换车：<b>快车更难、倍率更高</b></span></div>
+          <div class="mh-rule"><i>💰</i><span>金币跨局累计，<b>解锁新车</b>；贴着井盖擦过去有惊险奖励</span></div>
+          <div class="mh-rule"><i>⭐</i><span>幸运星能<b>顶掉一次</b>压盖；护盾短时间<b>撞碎井盖</b></span></div>
           <div class="mh-rule"><i>🚧</i><span>路锥减速断连击，但<b>不致命</b></span></div>
+        </div>
+        <div class="mh-garage" id="mhGarageBox">
+          <div class="mh-garage-head"><span>车库 · 选一辆上路</span><b id="mhCoins">🪙 0</b></div>
+          <div class="mh-garage-grid" id="mhGarage"></div>
+          <div class="mh-garage-msg" id="mhGarageMsg">自行车容错最高，赛车倍率最猛 —— 自己权衡</div>
         </div>
         <button class="mh-btn" id="mhBtnStart" type="button" data-primary-action>上路</button>
         <button class="mh-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
@@ -89,6 +94,8 @@
           <div class="mh-rcell"><div class="k">本局得分</div><div class="v" id="mhRScore">0</div></div>
           <div class="mh-rcell"><div class="k">行驶里程</div><div class="v" id="mhRMeters">0 m</div></div>
           <div class="mh-rcell"><div class="k">最高分</div><div class="v" id="mhRBest">0</div></div>
+          <div class="mh-rcell"><div class="k">捡到金币</div><div class="v" id="mhRCoins">🪙 0</div></div>
+          <div class="mh-rcell"><div class="k">本次座驾</div><div class="v" id="mhRCar">🚗</div></div>
         </div>
         <div class="mh-record" id="mhRRecord">🎉 新纪录！</div>
         <button class="mh-btn" id="mhBtnRetry" type="button" data-primary-action>再来一局</button>

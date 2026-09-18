@@ -40,8 +40,15 @@ window.MANHOLE_APP = (function () {
   var crashInfo = null;           // 本次撞击的现场（结算面板展示）
   var best = 0, bestLevel = 1;
 
-  /* 存档：最高分与最远关卡（分模块与该项目其他游戏一致的 key 风格） */
+  /* 车库状态：当前选的车 / 已解锁列表 / 累计金币（跨局） */
+  var vehId = 'sedan';
+  var garage = [];
+  var coins = 0;
+
+  /* 存档：最高分与最远关卡（分模块与该项目其他游戏一致的 key 风格）
+     车库三件套：累计金币 / 已解锁车辆 / 当前选的车 */
   var K_BEST = 'manhole-best', K_LEVEL = 'manhole-level';
+  var K_COINS = 'manhole-coins', K_GARAGE = 'manhole-garage', K_VEH = 'manhole-vehicle';
 
   function readStore(key, def) {
     try {
@@ -52,6 +59,29 @@ window.MANHOLE_APP = (function () {
   function writeStore(key, val) {
     try { window.localStorage.setItem(key, String(val)); } catch (e) { /* 隐私模式忽略 */ }
   }
+  /* 字符串版（车辆 id 不是数字，不能用 parseInt 那套） */
+  function readRaw(key, def) {
+    try {
+      var v = window.localStorage.getItem(key);
+      return v === null || v === '' ? def : v;
+    } catch (e) { return def; }
+  }
+  function writeRaw(key, val) {
+    try { window.localStorage.setItem(key, String(val)); } catch (e) { /* 隐私模式忽略 */ }
+  }
+  function loadGarage() {
+    coins = readStore(K_COINS, 0);
+    if (coins < 0) { coins = 0; }
+    vehId = readRaw(K_VEH, 'sedan');
+    var list = readRaw(K_GARAGE, '');
+    garage = list ? list.split(',') : [];
+    /* 兑底：价格 0 的车永远可用；旧存档/损坏存档回落到小轿车 */
+    for (var i = 0; i < D.VEHICLES.length; i++) {
+      if (D.VEHICLES[i].price === 0 && garage.indexOf(D.VEHICLES[i].id) < 0) { garage.push(D.VEHICLES[i].id); }
+    }
+    if (garage.indexOf(vehId) < 0) { vehId = 'sedan'; }
+  }
+  function currentVeh() { return D.vehicleById(vehId); }
 
   /* SECTION: DOM */
   function $(id) { return document.getElementById(id); }
@@ -82,6 +112,11 @@ window.MANHOLE_APP = (function () {
     el.lvName = $('mhLvName');
     el.countdown = $('mhCountdown');
     el.crashWhy = $('mhCrashWhy');
+    el.garage = $('mhGarage');
+    el.coinsTop = $('mhCoins');
+    el.garageMsg = $('mhGarageMsg');
+    el.rCoins = $('mhRCoins');
+    el.rCar = $('mhRCar');
   }
 
   /* SECTION: 画布尺寸
@@ -405,14 +440,20 @@ window.MANHOLE_APP = (function () {
   }
 
   /* SECTION: 车
-     俯视轿车：车身 + 车窗 + 两个前轮（**车轮位置直接取自 core 的 wheels()**，
-     保证画出来的轮子就是判定用的轮子 —— 视觉与判定永远一致）。 */
+     车辆化：每辆车用自己的配色/宽度/车长/轮距绘制。
+     **车轮位置直接取自 core 的 wheels()（传同一份 veh）** ——
+     画出来的轮子就是判定用的轮子，视觉与判定永远一致。
+     两轮车（自行车/电动车/摩托）判定仍是左右落点（规则一致性），
+     因此把判定轮画成半透明轮影 + 真实前后轮，不骗玩家。 */
   function drawCar(t) {
+    var veh = world.veh || currentVeh();
     var cx = world.carX, cy = world.carY;
-    var cw = C.carWidth(D, world.lanes);
-    var ch = D.PLAYER.h;
-    var ws = C.wheels(D, world.lanes, cx, cy);
+    var cw = C.carWidth(D, world.lanes, veh);
+    var ch = veh.h;
+    var ws = C.wheels(D, world.lanes, cx, cy, veh);
     var shake = world.hitAt ? 1 : 0;
+    var twoWheeler = veh.id === 'bike' || veh.id === 'ebike' || veh.id === 'moto';
+    var body = veh.body;
 
     ctx.save();
     ctx.translate(cx, cy);
@@ -421,49 +462,108 @@ window.MANHOLE_APP = (function () {
 
     /* 车影 */
     ctx.fillStyle = 'rgba(0,0,0,.46)';
-    roundRect(-cw / 2 + 3, -ch / 2 + 8, cw, ch, 12);
+    roundRect(-cw / 2 + 3, -ch / 2 + 8, cw, ch, twoWheeler ? 8 : 12);
     ctx.fill();
 
-    /* 车轮（先画，压在车身下面） */
+    /* 车轮（先画，压在车身下面）。
+       判定轮在车长中点（ws 的 y = cy），四轮车画成前后两对；
+       两轮车把判定轮画成轮影（判定可视化），另画真实前后轮。 */
     for (var i = 0; i < ws.length; i++) {
       var wx = ws[i].x - cx;
-      ctx.fillStyle = '#12151c';
-      roundRect(wx - 7, -ch / 2 + 6, 14, 22, 4);
-      ctx.fill();
-      roundRect(wx - 7, ch / 2 - 28, 14, 22, 4);
-      ctx.fill();
+      var wr = ws[i].r;
+      if (twoWheeler) {
+        ctx.fillStyle = 'rgba(120,160,220,.16)';            /* 判定轮影 */
+        ctx.beginPath(); ctx.arc(wx, 0, wr + 2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(150,190,240,.34)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#12151c';
+        roundRect(wx - 7, -ch / 2 + 6, 14, 22, 4); ctx.fill();
+        roundRect(wx - 7, ch / 2 - 28, 14, 22, 4); ctx.fill();
+      }
     }
 
     /* 车身 */
     var g = ctx.createLinearGradient(-cw / 2, 0, cw / 2, 0);
-    g.addColorStop(0, '#7b1230');
-    g.addColorStop(0.42, '#e0344f');
-    g.addColorStop(0.62, '#ff6a7d');
-    g.addColorStop(1, '#a01632');
+    g.addColorStop(0, body[0]);
+    g.addColorStop(0.42, body[1]);
+    g.addColorStop(0.62, body[2]);
+    g.addColorStop(1, body[3]);
     ctx.fillStyle = g;
-    roundRect(-cw / 2, -ch / 2, cw, ch, 12);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(30,6,14,.7)';
+    ctx.strokeStyle = 'rgba(10,8,16,.7)';
     ctx.lineWidth = 2;
-    ctx.stroke();
 
-    /* 前挡风 + 后窗 */
-    ctx.fillStyle = 'rgba(150,205,255,.72)';
-    roundRect(-cw / 2 + 9, -ch / 2 + 12, cw - 18, 16, 5);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(150,205,255,.42)';
-    roundRect(-cw / 2 + 10, ch / 2 - 27, cw - 20, 14, 5);
-    ctx.fill();
+    if (twoWheeler) {
+      /* 两轮车：细长车身 + 真实前后轮 + 车把/踏板细节 */
+      var bw = Math.max(12, cw * 0.30);
+      /* 真实前后轮 */
+      ctx.fillStyle = '#12151c';
+      roundRect(-7, -ch / 2 - 2, 14, 15, 6); ctx.fill();
+      roundRect(-7, ch / 2 - 13, 14, 15, 6); ctx.fill();
+      /* 车架/车身 */
+      roundRect(-bw / 2, -ch / 2 + 10, bw, ch - 20, 6);
+      ctx.fill(); ctx.stroke();
+      /* 车把（车头横杆，可以比车身宽 —— 俯视真实感） */
+      ctx.strokeStyle = veh.accent;
+      ctx.lineWidth = 3;
+      roundRect(-cw / 2 * 0.72, -ch / 2 + 4, cw * 0.72, 4, 2);
+      ctx.stroke();
+      if (veh.id === 'ebike') {
+        ctx.fillStyle = 'rgba(0,0,0,.28)';                 /* 踏板 */
+        roundRect(-bw / 2 - 3, ch / 2 - 22, bw + 6, 9, 3); ctx.fill();
+      }
+      if (veh.id === 'moto') {
+        ctx.fillStyle = 'rgba(0,0,0,.30)';                 /* 排气管 */
+        roundRect(bw / 2 - 1, ch / 2 - 26, 4, 16, 2); ctx.fill();
+        ctx.fillStyle = 'rgba(150,205,255,.55)';           /* 导流罩 */
+        roundRect(-bw / 2, -ch / 2 + 9, bw, 10, 4); ctx.fill();
+      }
+      /* 骑手头盔 */
+      ctx.fillStyle = veh.accent;
+      ctx.beginPath(); ctx.arc(0, -2, Math.max(4.5, bw * 0.26), 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(10,8,16,.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+    } else {
+      /* 四轮车：车壳 + 挡风 + 车顶 + 车灯 */
+      var round = veh.id === 'race' ? 9 : 12;
+      roundRect(-cw / 2, -ch / 2, cw, ch, round);
+      ctx.fill(); ctx.stroke();
 
-    /* 车顶 */
-    ctx.fillStyle = 'rgba(255,255,255,.10)';
-    roundRect(-cw / 2 + 8, -ch / 2 + 32, cw - 16, 24, 6);
-    ctx.fill();
+      ctx.fillStyle = 'rgba(150,205,255,.72)';
+      roundRect(-cw / 2 + 9, -ch / 2 + 12, cw - 18, 16, 5); ctx.fill();
+      ctx.fillStyle = 'rgba(150,205,255,.42)';
+      roundRect(-cw / 2 + 10, ch / 2 - 27, cw - 20, 14, 5); ctx.fill();
 
-    /* 车灯 */
+      ctx.fillStyle = 'rgba(255,255,255,.10)';
+      roundRect(-cw / 2 + 8, -ch / 2 + 32, cw - 16, 24, 6); ctx.fill();
+
+      if (veh.id === 'race') {
+        /* 赛车：尾翼 + 中央条纹 */
+        ctx.fillStyle = body[0];
+        roundRect(-cw / 2 - 4, ch / 2 - 10, cw + 8, 6, 3); ctx.fill();
+        ctx.strokeStyle = 'rgba(20,14,2,.55)'; ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,.82)';
+        ctx.fillRect(-3, -ch / 2 + 3, 6, ch - 16);
+      } else if (veh.id === 'suv') {
+        /* 越野车：车顶行李架 */
+        ctx.strokeStyle = 'rgba(40,32,10,.6)';
+        ctx.lineWidth = 2.5;
+        for (var rr2 = 0; rr2 < 3; rr2++) {
+          var yy2 = -ch / 2 + 34 + rr2 * 7;
+          ctx.beginPath(); ctx.moveTo(-cw / 2 + 10, yy2); ctx.lineTo(cw / 2 - 10, yy2); ctx.stroke();
+        }
+      }
+    }
+
+    /* 车灯（四轮车才有双灯，两轮车一个大灯） */
     ctx.fillStyle = 'rgba(255,248,200,.95)';
-    ctx.beginPath(); ctx.ellipse(-cw / 2 + 9, -ch / 2 + 4, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cw / 2 - 9, -ch / 2 + 4, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+    if (twoWheeler) {
+      ctx.beginPath(); ctx.ellipse(0, -ch / 2 + 2, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.ellipse(-cw / 2 + 9, -ch / 2 + 4, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cw / 2 - 9, -ch / 2 + 4, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.fillStyle = 'rgba(255,90,90,.9)';
     ctx.fillRect(-cw / 2 + 6, ch / 2 - 4, 12, 3);
     ctx.fillRect(cw / 2 - 18, ch / 2 - 4, 12, 3);
@@ -598,6 +698,64 @@ window.MANHOLE_APP = (function () {
     if (node) { node.classList.add('show'); }
   }
 
+  /* ============================================================
+     SECTION: 车库
+     四态卡片：sel（使用中）/ own（已拥有，点击选用）/ buy（钱够，点击解锁）/
+     lock（钱不够）。只改自己的三个存档 key，不碰最高分/最远关卡。 */
+  function setGarageMsg(t) { if (el.garageMsg) { el.garageMsg.textContent = t; } }
+
+  function renderGarage() {
+    if (!el.garage) { return; }
+    var html = '';
+    for (var i = 0; i < D.VEHICLES.length; i++) {
+      var v = D.VEHICLES[i];
+      var own = garage.indexOf(v.id) >= 0;
+      var sel = vehId === v.id;
+      var cls = 'mh-veh' + (sel ? ' sel' : '') + (!own ? (coins >= v.price ? ' buy' : ' lock') : '');
+      var sub;
+      if (sel) { sub = '使用中'; }
+      else if (own) { sub = '×' + v.mult.toFixed(1) + ' 分'; }
+      else { sub = (coins >= v.price ? '🪙 ' : '🔒 ') + v.price; }
+      html += '<button type="button" class="' + cls + '" data-veh="' + v.id + '"'
+            + ' aria-label="' + v.name + '">'
+            + '<span class="mh-veh-art">' + v.art + '</span>'
+            + '<span class="mh-veh-name">' + v.name + '</span>'
+            + '<span class="mh-veh-sub">' + sub + '</span></button>';
+    }
+    el.garage.innerHTML = html;
+    if (el.coinsTop) { el.coinsTop.textContent = '🪙 ' + fmt(coins); }
+  }
+
+  function bindGarage() {
+    if (!el.garage) { return; }
+    el.garage.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.mh-veh') : null;
+      if (!btn) { return; }
+      var id = btn.getAttribute('data-veh');
+      var v = D.vehicleById(id);
+      if (!v) { return; }
+      if (garage.indexOf(id) >= 0) {
+        if (vehId === id) { return; }
+        vehId = id;
+        writeRaw(K_VEH, id);
+        setGarageMsg(v.art + ' ' + v.name + ' 已就位 —— 速度、宽度、倍率都变了');
+      } else if (coins >= v.price) {
+        coins -= v.price;
+        garage.push(id);
+        vehId = id;
+        writeStore(K_COINS, coins);
+        writeRaw(K_GARAGE, garage.join(','));
+        writeRaw(K_VEH, id);
+        D.Audio.star();
+        setGarageMsg('🎉 解锁 ' + v.art + ' ' + v.name + '！' + v.desc);
+      } else {
+        setGarageMsg('还差 🪙 ' + (v.price - coins) + ' 就能解锁 ' + v.name + '（金币跨局累计）');
+        D.Audio.nearMiss();
+      }
+      renderGarage();
+    });
+  }
+
   function setCountdown(txt, cls) {
     if (!el.countdown) { return; }
     if (!txt) { el.countdown.classList.remove('show', 'go'); return; }
@@ -611,8 +769,11 @@ window.MANHOLE_APP = (function () {
      ============================================================ */
   var COUNTDOWN = ['3', '2', '1', 'GO'];
 
-  function newRun(level) {
-    world = new C.World(D, level, Math.random).start();
+  function newRun(level, vehicleId) {
+    /* 车辆：显式传入（自动化钩子）→ 上次选的车 → 小轿车 */
+    var vid = vehicleId || vehId || 'sedan';
+    vehId = vid;
+    world = new C.World(D, level, Math.random, { vehicleId: vid }).start();
     world.startGraceMs = D.RULES.startGraceMs;
     floaters = [];
     crushMarks = [];
@@ -662,6 +823,14 @@ window.MANHOLE_APP = (function () {
     el.rLevel.textContent = st.level;
     el.rScore.textContent = fmt(st.score);
     el.rMeters.textContent = st.meters + ' m';
+    /* 金币入库（跨局累计，解锁车辆用）；座驾与倍率展示 */
+    if (el.rCoins) { el.rCoins.textContent = '🪙 ' + st.coins; }
+    if (el.rCar) { el.rCar.textContent = (currentVeh().art + ' ' + st.vehName + ' ×' + st.vehMult.toFixed(1)); }
+    if (st.coins > 0) {
+      coins += st.coins;
+      writeStore(K_COINS, coins);
+      renderGarage();          /* 车库顶栏的金币数同步刷新 */
+    }
     if (kind === 'win') {
       el.rTitle.textContent = '过关！';
       el.rArt.textContent = '🏁';
@@ -744,9 +913,9 @@ window.MANHOLE_APP = (function () {
 
   /* 撞击现场说明：告诉玩家是怎么死的（自学比猜有用） */
   function buildCrashInfo(e) {
-    var ws = C.wheels(D, world.lanes, world.carX, world.carY);
-    var lane = C.occupiedLanes(D, world.lanes, world.carX);
-    var aligned = C.alignedLane(D, world.lanes, world.carX);
+    var ws = C.wheels(D, world.lanes, world.carX, world.carY, world.veh);
+    var lane = C.occupiedLanes(D, world.lanes, world.carX, world.veh);
+    var aligned = C.alignedLane(D, world.lanes, world.carX, world.veh);
     var t;
     if (aligned < 0) {
       t = '车正跨在两条车道之间 —— 并线没完成就撞上了井盖。';
@@ -924,6 +1093,9 @@ window.MANHOLE_APP = (function () {
     bindDom();
     setupCanvas();
     bindInput();
+    bindGarage();
+    loadGarage();
+    renderGarage();
     best = readStore(K_BEST, 0);
     bestLevel = readStore(K_LEVEL, 1);
     active = false;
@@ -968,9 +1140,10 @@ window.MANHOLE_APP = (function () {
   return {
     mount: mount, activate: activate, deactivate: deactivate,
     resize: resize, isActive: isActive, stats: stats,
-    /* 给自动化 e2e 用：直接起一局并推进，不依赖倒计时 */
-    _debugStart: function (level) {
-      newRun(level || 1);
+    /* 给自动化 e2e 用：直接起一局并推进，不依赖倒计时。
+       vehicleId 可选 —— 不传就用当前选的车（与真实点击车库行为一致）。 */
+    _debugStart: function (level, vehicleId) {
+      newRun(level || 1, vehicleId);
       D.Audio.enabled = false;
       if (engineTimer) { window.clearTimeout(engineTimer); engineTimer = null; }
       setCountdown(null);

@@ -44,6 +44,73 @@ window.MANHOLE_DATA = (function () {
     wheelRadius: 11                 // 车轮判定半径（设计像素）
   };
 
+  /* SECTION: vehicles 车库
+     不同车不止长得不一样 —— 速度、横向灵活性、车身宽窄、分数倍率全都不同：
+
+       speed       整体速度倍率。乘进世界滚动速度与横向速度：**空间路况对每辆车完全相同**
+                   （同一条路），快车只是开得快 → 井盖到达时间被压缩 → 更难。
+                   反应时间/并线时间的公平性体系都是"时间缩放不变"的：
+                   快车横移也快，"行距 ≥ 两次并线"的不变式在每辆车上都保持成立
+                   （AI 守门断言对每辆车分别验证，见 test-manhole-core.mjs）。
+       steer       横向灵活度倍率（乘 PLAYER.steerSpeed）。自行车/摩托转向快、越野车笨重。
+       w / h       车身占车道宽的比例 / 车长（设计像素）。窄车判定带窄 → 容错高。
+       wheelRadius 车轮判定半径。判定与绘制都用它（画出来的轮子就是判定用的轮子）。
+       mult        分数倍率：路程分、惊险奖励、道具分、通关奖励全部 ×mult ——
+                   开得快/车身宽是真实的风险，赚得也必须是真实的。
+       price       解锁需要的累计金币（捡到的金币跨局累计，存 manhole-coins）。
+                   price=0 的是初始车（自行车 / 小轿车）。
+
+     每辆车都验证过的判定不变式（勿破坏，单测守着）：
+       · 车宽 < 车道宽（能并线）；
+       · 井盖直径(60) < 车宽（"车身覆盖即压到"语义成立）；
+       · 轮距 + 2×(轮半径+井盖半径) 覆盖整个车底带 —— 井盖从两轮间钻不过去。 */
+  var VEHICLES = [
+    {
+      id: 'bike', name: '自行车', art: '🚲', price: 0, stars: 1,
+      speed: 0.82, steer: 1.22, w: 0.36, h: 52, wheelRadius: 7, mult: 0.8,
+      body: ['#0f3a5e', '#2f8fc9', '#7cd0f2', '#0c2f4e'], accent: '#9adfff',
+      desc: '慢慢骑，看得清 —— 容错最高，赚得最少'
+    },
+    {
+      id: 'ebike', name: '电动自行车', art: '🛵', price: 400, stars: 2,
+      speed: 0.92, steer: 1.12, w: 0.40, h: 58, wheelRadius: 8, mult: 0.9,
+      body: ['#0c4a32', '#22a86b', '#71e6ac', '#093a27'], accent: '#7ef0bd',
+      desc: '外卖骑手的默契：不快，但稳'
+    },
+    {
+      id: 'sedan', name: '小轿车', art: '🚗', price: 0, stars: 3,
+      speed: 1.00, steer: 1.00, w: 0.62, h: 78, wheelRadius: 11, mult: 1.0,
+      body: ['#7b1230', '#e0344f', '#ff6a7d', '#a01632'], accent: '#ff8a9a',
+      desc: '基准车：速度、宽度、收益都是标杆'
+    },
+    {
+      id: 'suv', name: '越野车', art: '🚙', price: 1200, stars: 3,
+      speed: 1.06, steer: 0.88, w: 0.74, h: 84, wheelRadius: 12, mult: 1.15,
+      body: ['#4a3a10', '#b8922e', '#f0d070', '#3a2d0c'], accent: '#ffd97a',
+      desc: '又宽又笨，缝里难钻 —— 但分给得多'
+    },
+    {
+      id: 'moto', name: '摩托车', art: '🏍️', price: 2500, stars: 4,
+      speed: 1.18, steer: 1.30, w: 0.42, h: 60, wheelRadius: 8, mult: 1.3,
+      body: ['#33104d', '#7a35c2', '#b57ef0', '#270a3d'], accent: '#c9a0ff',
+      desc: '快，而且车把极灵 —— 钻缝专家'
+    },
+    {
+      id: 'race', name: '赛车', art: '🏎️', price: 5000, stars: 5,
+      speed: 1.32, steer: 1.08, w: 0.56, h: 74, wheelRadius: 10, mult: 1.6,
+      body: ['#5e4400', '#e8a813', '#ffd34d', '#4a3500'], accent: '#ffe082',
+      desc: '最快的一辆，井盖迎面砸过来 —— 倍率也是最高的'
+    }
+  ];
+
+  /* 按车辆 id 取表项；找不到（旧存档写了不存在的 id 之类）就回落到小轿车 */
+  function vehicleById(id) {
+    for (var i = 0; i < VEHICLES.length; i++) {
+      if (VEHICLES[i].id === id) { return VEHICLES[i]; }
+    }
+    return VEHICLES[2];   // sedan
+  }
+
   /* SECTION: world
      路面向玩家滚动的速度（设计像素/秒）。开局慢、逐关快，
      速度压力是这款游戏的主要难度来源。 */
@@ -301,6 +368,7 @@ window.MANHOLE_DATA = (function () {
     RULES: RULES, SCORE: SCORE, PICKUPS: PICKUPS, HAZARDS: HAZARDS,
     LEVELS: LEVELS, ENDLESS: ENDLESS,
     TIPS: TIPS, HIT_LINES: HIT_LINES,
+    VEHICLES: VEHICLES, vehicleById: vehicleById,
     levelConfig: levelConfig,
     Audio: Audio
   };

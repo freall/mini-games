@@ -41,6 +41,32 @@ window.MANHOLE_CORE = (function () {
     return { left: l, right: l + w };
   }
 
+  /* SECTION: 车辆参数
+     data 层的 VEHICLES 表 + PLAYER 基准合成出"这局车的有效玩家参数"。
+     判定/操控用的字段形状与 D.PLAYER 完全兼容（w/h/wheelRadius/steerSpeed），
+     另带 speed（整体速度倍率）与 mult（分数倍率）。
+     所有 core 判定函数都接受可选的 veh 尾参：不传 = 用 D.PLAYER（小轿车基准），
+     这样旧调用点与既有单测语义一个字都不用变。 */
+  function playerParams(D, vehId) {
+    var v = D.vehicleById ? D.vehicleById(vehId) : null;
+    if (!v) { v = { id: 'sedan', name: '小轿车', mult: 1, w: D.PLAYER.w, h: D.PLAYER.h, speed: 1 }; }
+    return {
+      id: v.id, name: v.name,
+      /* 视觉字段也要带：drawCar 直接读 veh.body / veh.accent 画车身 ——
+         踩过的坑：漏掉 body 后渲染层每帧 undefined[0] 报错，
+         判定全对、单测全绿，冒烟 pageerror 刷屏才抓到。 */
+      art: v.art || '🚗', body: v.body, accent: v.accent,
+      mult: v.mult || 1,
+      w: v.w, h: v.h, wheelRadius: v.wheelRadius || D.PLAYER.wheelRadius,
+      /* 横向巡航速度 = 基准 × 车辆灵活度（键盘长按的横移速度） */
+      steerSpeed: D.PLAYER.steerSpeed * (v.steer || 1),
+      /* 整体速度倍率：乘进世界滚动速度 —— 同一条路，快车只是开得快，
+         井盖到达时间被等比压缩（"行距 ≥ 两次并线"的公平性不变式是
+         时间缩放不变的：快车横移也快，缩放后仍成立）。 */
+      speed: v.speed || 1
+    };
+  }
+
   /* SECTION: 车身占用的车道集合
      **这是判定与"玩家以为自己在哪条道"保持一致的关键**。
      只用车身中心所在车道会有个隐蔽的坑：车心在车道 1（x=274，车道 1 从 273.5 起）
@@ -48,8 +74,8 @@ window.MANHOLE_CORE = (function () {
      车轮却真的碾在车道 0 的井盖上，会觉得游戏在耍赖。
      所以这里按**车轮实际落点**报占用车道：车轮压到哪条道的范围，就算占用哪条道。
      生成器与玩家的并线判断都以此为准，视觉与判定才不会打架。 */
-  function occupiedLanes(D, lanes, cx) {
-    var ws = wheels(D, lanes, cx, D.PLAYER.y);
+  function occupiedLanes(D, lanes, cx, veh) {
+    var ws = wheels(D, lanes, cx, D.PLAYER.y, veh);
     var out = [];
     for (var i = 0; i < ws.length; i++) {
       var l = laneOfX(D, lanes, ws[i].x);
@@ -60,8 +86,8 @@ window.MANHOLE_CORE = (function () {
 
   /* 车是否"安稳地待在某一条车道里"（两个车轮都在同一条车道的范围内，
      且留出车轮半径的余量）—— 只有这时候才算真正对准了车道。 */
-  function alignedLane(D, lanes, cx) {
-    var ws = wheels(D, lanes, cx, D.PLAYER.y);
+  function alignedLane(D, lanes, cx, veh) {
+    var ws = wheels(D, lanes, cx, D.PLAYER.y, veh);
     var l0 = laneOfX(D, lanes, ws[0].x), l1 = laneOfX(D, lanes, ws[1].x);
     if (l0 !== l1) { return -1; }
     var b = laneBounds(D, lanes, l0);
@@ -69,18 +95,27 @@ window.MANHOLE_CORE = (function () {
     return l0;
   }
 
-  /* 车宽（随车道宽缩放，保证四车道永远是"一辆车 + 一条缝"的观感） */
-  function carWidth(D, lanes) { return laneWidth(D, lanes) * D.PLAYER.w; }
+  /* 车宽（随车道宽缩放，保证四车道永远是"一辆车 + 一条缝"的观感）。
+     veh 可选：不同车辆有不同的车身宽度占比（自行车窄、越野车宽）。 */
+  function carWidth(D, lanes, veh) {
+    var P = veh || D.PLAYER;
+    return laneWidth(D, lanes) * P.w;
+  }
 
   /* SECTION: 车轮落点
      左右前轮（够用了 —— 前轮压盖就是压盖，后轮通常跟着前轮走）。
      返回 [{x, y, r}, {x, y, r}]，车身中心 (cx, cy)。
 
      轮距取"车身外沿向内缩一个轮半径"，即车轮贴在车身两侧，
-     这样车轮判定带 = 车身覆盖带，玩家看到的车身有多宽，判定就有多宽。 */
-  function wheels(D, lanes, cx, cy) {
-    var half = carWidth(D, lanes) / 2;
-    var r = D.PLAYER.wheelRadius;
+     这样车轮判定带 = 车身覆盖带，玩家看到的车身有多宽，判定就有多宽。
+
+     **每辆车的 wheelRadius 都验证过同一个不变式**（单测守着）：
+     井盖压在车身正中时必有车轮碰到（half ≤ 2×wheelRadius + 井盖半径），
+     井盖从两轮间"钻过去"的漏洞在窄车（自行车）上同样不会出现。 */
+  function wheels(D, lanes, cx, cy, veh) {
+    var P = veh || D.PLAYER;
+    var half = carWidth(D, lanes, veh) / 2;
+    var r = P.wheelRadius;
     var off = Math.max(0, half - r);
     return [
       { x: cx - off, y: cy, r: r },
@@ -97,9 +132,10 @@ window.MANHOLE_CORE = (function () {
      用"完全覆盖"而不是"有重叠"是有意的：车轮判定已经覆盖了车身两侧的接触，
      这里的补集只是车底正中那一段，两者合起来正好等于"车身覆盖到就算压到"，
      不会把"井盖只在车身角上蹭掉一点"这类过于严苛的情形也算进去。 */
-  function underBody(D, lanes, cx, cy, obs) {
-    var half = carWidth(D, lanes) / 2;
-    var hh = D.PLAYER.h / 2;
+  function underBody(D, lanes, cx, cy, obs, veh) {
+    var P = veh || D.PLAYER;
+    var half = carWidth(D, lanes, veh) / 2;
+    var hh = P.h / 2;
     /* 纵向：井盖必须真的在车身前后范围内 */
     if (Math.abs(obs.y - cy) > hh) { return false; }
     /* 横向：井盖的左右边缘都要落在车身内 */
@@ -118,12 +154,12 @@ window.MANHOLE_CORE = (function () {
 
   /* 车轮组 vs 一个井盖：任一车轮压到、**或井盖整个落在车底正中**即算压到
      （见 underBody 的注释：只有车轮判会漏掉车底正中的那一块） */
-  function carHits(D, lanes, cx, cy, obs) {
-    var ws = wheels(D, lanes, cx, cy);
+  function carHits(D, lanes, cx, cy, obs, veh) {
+    var ws = wheels(D, lanes, cx, cy, veh);
     for (var i = 0; i < ws.length; i++) {
       if (circlesOverlap(ws[i].x, ws[i].y, ws[i].r, obs.x, obs.y, obs.r)) { return true; }
     }
-    return underBody(D, lanes, cx, cy, obs);
+    return underBody(D, lanes, cx, cy, obs, veh);
   }
 
   /* SECTION: 车身判定（拾取物 / 干扰物）
@@ -131,8 +167,9 @@ window.MANHOLE_CORE = (function () {
      车底正中跨在两轮之间的井盖不该算），而金币、路锥这类东西是**车身范围**内的
      接触就算数 —— 用车轮判会让放在车正中的金币永远捡不到（踩过一次）。
      车身是个矩形，这里退化成"矩形 vs 圆"的最近点测试，够精确也够快。 */
-  function carBodyHits(D, lanes, cx, cy, obs) {
-    var hw = carWidth(D, lanes) / 2, hh = D.PLAYER.h / 2;
+  function carBodyHits(D, lanes, cx, cy, obs, veh) {
+    var P = veh || D.PLAYER;
+    var hw = carWidth(D, lanes, veh) / 2, hh = P.h / 2;
     var nx = Math.max(cx - hw, Math.min(cx + hw, obs.x));
     var ny = Math.max(cy - hh, Math.min(cy + hh, obs.y));
     var dx = nx - obs.x, dy = ny - obs.y;
@@ -140,13 +177,13 @@ window.MANHOLE_CORE = (function () {
   }
 
   /* 车身版扫掠：与 sweptHit 同理，防止高速穿过小物件 */
-  function sweptBodyHit(D, lanes, cx, cy, obs, dy) {
-    if (carBodyHits(D, lanes, cx, cy, obs)) { return true; }
+  function sweptBodyHit(D, lanes, cx, cy, obs, dy, veh) {
+    if (carBodyHits(D, lanes, cx, cy, obs, veh)) { return true; }
     if (!dy) { return false; }
     var stepMax = Math.max(6, obs.r);
     var steps = Math.min(24, Math.ceil(Math.abs(dy) / stepMax));
     for (var i = 1; i <= steps; i++) {
-      if (carBodyHits(D, lanes, cx, cy, { x: obs.x, y: obs.y - dy * (i / steps), r: obs.r })) { return true; }
+      if (carBodyHits(D, lanes, cx, cy, { x: obs.x, y: obs.y - dy * (i / steps), r: obs.r }, veh)) { return true; }
     }
     return false;
   }
@@ -158,14 +195,15 @@ window.MANHOLE_CORE = (function () {
      井盖会整个"跳过"车轮所在的高度，出现**穿过井盖却判不到碰撞**的漏洞。
      所以判定沿着本帧的位移轨迹采样若干点，取任一采样点命中即为命中。
      step 取 min(井盖直径, 车轮直径) 的一半，保证采样不会漏掉重叠区间。 */
-  function sweptHit(D, lanes, cx, cy, obs, dy) {
-    if (carHits(D, lanes, cx, cy, obs)) { return true; }
+  function sweptHit(D, lanes, cx, cy, obs, dy, veh) {
+    if (carHits(D, lanes, cx, cy, obs, veh)) { return true; }
     if (!dy) { return false; }
-    var stepMax = Math.max(6, Math.min(obs.r * 2, D.PLAYER.wheelRadius * 2) * 0.5);
+    var P = veh || D.PLAYER;
+    var stepMax = Math.max(6, Math.min(obs.r * 2, P.wheelRadius * 2) * 0.5);
     var steps = Math.min(24, Math.ceil(Math.abs(dy) / stepMax));
     for (var i = 1; i <= steps; i++) {
       /* 往回采样：obs 已在本帧末位置，向"上一帧的位置"方向回溯 */
-      if (carHits(D, lanes, cx, cy, { x: obs.x, y: obs.y - dy * (i / steps), r: obs.r })) { return true; }
+      if (carHits(D, lanes, cx, cy, { x: obs.x, y: obs.y - dy * (i / steps), r: obs.r }, veh)) { return true; }
     }
     return false;
   }
@@ -173,8 +211,8 @@ window.MANHOLE_CORE = (function () {
   /* 「擦过去」判定：没压到，但某个车轮离井盖边缘足够近。
      用 圆心距 - 半径和 得到"净间隙"，小于阈值即算惊险擦过。
      必须先确认没压到（间隙为负就是压到了，那要算碰撞不算擦过）。 */
-  function nearMissGap(D, lanes, cx, cy, obs) {
-    var ws = wheels(D, lanes, cx, cy);
+  function nearMissGap(D, lanes, cx, cy, obs, veh) {
+    var ws = wheels(D, lanes, cx, cy, veh);
     var best = Infinity;
     for (var i = 0; i < ws.length; i++) {
       var dx = ws[i].x - obs.x, dy = ws[i].y - obs.y;
@@ -190,10 +228,12 @@ window.MANHOLE_CORE = (function () {
     return Math.min(D.SCORE.comboMax, 1 + Math.floor(dodged / D.SCORE.comboStep));
   }
 
-  /* 一个拾取物的得分（连击倍率同样生效，所以贴着井盖捡金币很赚） */
-  function pickupScore(kind, dodged, D) {
+  /* 一个拾取物的得分（连击倍率同样生效，所以贴着井盖捡金币很赚）。
+     veh 可选：不同车辆有分数倍率（开得快/宽是真实风险，收益也真实）。 */
+  function pickupScore(kind, dodged, D, veh) {
     var base = D.SCORE[kind] || 0;
-    return Math.round(base * comboMult(dodged, D));
+    var m = (veh && veh.mult) || 1;
+    return Math.round(base * comboMult(dodged, D) * m);
   }
 
   /* 关卡结算分：路程基础分 + 通关奖励 */
@@ -343,6 +383,9 @@ window.MANHOLE_CORE = (function () {
     this.rng = rng || Math.random;
     this.cfg = D.levelConfig(level);
     this.lanes = Math.max(2, Math.min(D.ROAD.lanes, opts.lanes || D.ROAD.lanes));
+    /* 车辆：默认小轿车（旧调用不传 vehicleId 时行为与以前完全一致）。
+       veh 挂在实例上 —— 选车在局与局之间，reset 不重置它。 */
+    this.veh = playerParams(D, opts.vehicleId);
     this.reset(level);
   }
 
@@ -354,7 +397,10 @@ window.MANHOLE_CORE = (function () {
     this.won = false;
     this.level = this.cfg.level;
     this.distance = 0;             // 已跑米数
-    this.speed = this.cfg.speed;   // 世界滚动速度（px/s）
+    /* 世界滚动速度 = 关卡速度 × 车辆速度倍率。
+       行距（rowSpacing）仍按关卡速度生成 → 空间路况对每辆车完全相同，
+       但快车到达下一行的时间 = 行距/(速度×veh.speed) 被等比压缩 → 更难。 */
+    this.speed = this.cfg.speed * (this.veh ? this.veh.speed : 1);   // 世界滚动速度（px/s）
     this.speedMul = 1;             // 道具造成的速度倍率（加速带/减速）
     this.speedMulMs = 0;
     this.carX = laneCenterX(D, this.lanes, Math.floor(this.lanes / 2));
@@ -365,6 +411,7 @@ window.MANHOLE_CORE = (function () {
     this.obs = [];                 // 路上的井盖等元素
     this.dodged = 0;               // 连续躲过的井盖数（连击）
     this.bestDodged = 0;
+    this.coins = 0;                // 本局捡到的金币枚数（存档累计，车辆解锁用）
     this.meters = 0;
     this.score = 0;
     this.nearMisses = 0;
@@ -394,7 +441,7 @@ window.MANHOLE_CORE = (function () {
      都夹在路面范围内，车轮永远不会跑到路肩上去。 */
   World.prototype.setCarX = function (x) {
     var D = this.D;
-    var half = carWidth(D, this.lanes) / 2;
+    var half = carWidth(D, this.lanes, this.veh) / 2;
     var lo = roadLeft(D) + half, hi = roadRight(D) - half;
     this.carX = Math.max(lo, Math.min(hi, x));
   };
@@ -426,10 +473,10 @@ window.MANHOLE_CORE = (function () {
     if (this.magnetMs > 0) { this.magnetMs = Math.max(0, this.magnetMs - dt * 1000); }
     if (this.graceMs > 0) { this.graceMs = Math.max(0, this.graceMs - dt * 1000); }
 
-    /* 长按方向盘：连续横向移动 */
+    /* 长按方向盘：连续横向移动（车辆灵活度影响横移速度） */
     if (this.steer) {
       var D2 = D;
-      var speed = D2.PLAYER.steerSpeed * laneWidth(D2, this.lanes);
+      var speed = this.veh.steerSpeed * laneWidth(D2, this.lanes);
       this.setCarX(this.carX + this.steer * speed * dt);
       this.tilt += (this.steer * 0.5 - this.tilt) * Math.min(1, dt * 12);
     } else {
@@ -437,11 +484,12 @@ window.MANHOLE_CORE = (function () {
     }
 
     var sp = this.curSpeed();
-    /* 路程：滚动像素 → 米。1 米 = 12 设计像素（车长 78px ≈ 5.5 米，比例正常） */
+    /* 路程：滚动像素 → 米。1 米 = 12 设计像素（车长 78px ≈ 5.5 米，比例正常）。
+       分数乘车辆倍率：快车/宽车是真实风险，赚分也必须真实。 */
     var px = sp * dt;
     this.distance += px;
     this.meters = this.distance / 12;
-    this.score += px / 12 * D.SCORE.perMeter;
+    this.score += px / 12 * D.SCORE.perMeter * this.veh.mult;
 
     /* 世界元素下移。
        **必须先移动、后判定**：判定用的是元素在本帧末的位置，
@@ -477,7 +525,7 @@ window.MANHOLE_CORE = (function () {
 
       if (t.kind === 'manhole') {
         /* 用扫掠判定而不是单点判定：防止高速/掉帧时"穿过"井盖（见 sweptHit 注释） */
-        if (sweptHit(D, this.lanes, this.carX, this.carY, t, px + (t.scroll ? D.WORLD.spawnScroll * dt : 0))) {
+        if (sweptHit(D, this.lanes, this.carX, this.carY, t, px + (t.scroll ? D.WORLD.spawnScroll * dt : 0), this.veh)) {
           if (this.shieldMs > 0) {
             /* 护盾挡下：井盖被撞碎，照样算躲过一个 */
             ev.push({ t: 'shielded', x: t.x, y: t.y });
@@ -508,11 +556,11 @@ window.MANHOLE_CORE = (function () {
            `t.y > carY - ...`，这样窗口对车的纵向位置是对称的，不会因为
            井盖已经从车侧面滑过去而反复触发。 */
         if (!t.near && !t.passed && Math.abs(t.y - this.carY) < D.PLAYER.h * 0.75) {
-          var gap = nearMissGap(D, this.lanes, this.carX, this.carY, t);
+          var gap = nearMissGap(D, this.lanes, this.carX, this.carY, t, this.veh);
           if (gap >= 0 && gap < D.SCORE.nearMissRadius) {
             t.near = true;
             this.nearMisses++;
-            var nearGain = D.SCORE.nearMiss * comboMult(this.dodged, D);
+            var nearGain = D.SCORE.nearMiss * comboMult(this.dodged, D) * this.veh.mult;
             this.score += nearGain;
             ev.push({ t: 'nearMiss', x: t.x, y: t.y, gain: nearGain });
           }
@@ -520,14 +568,14 @@ window.MANHOLE_CORE = (function () {
       } else if (t.kind === 'coin' || t.kind === 'star' || t.kind === 'nitro' || t.kind === 'shield') {
         /* 拾取物用**车身**判定（不是车轮）：金币小，高速下同样会被"穿过"，
            所以照样走扫掠版本。 */
-        if (sweptBodyHit(D, this.lanes, this.carX, this.carY, t, px + (t.scroll ? D.WORLD.spawnScroll * dt : 0))) {
+        if (sweptBodyHit(D, this.lanes, this.carX, this.carY, t, px + (t.scroll ? D.WORLD.spawnScroll * dt : 0), this.veh)) {
           ev.push(this.applyPickup(t));
           this.obs.splice(j, 1);
           continue;
         }
       } else if (t.kind === 'hazard') {
         /* 路锥/水洼：也是车身接触即算，撞上去只是减速 + 断连击，不致命（致命的是井盖） */
-        if (!t.hit && sweptBodyHit(D, this.lanes, this.carX, this.carY, t, px + (t.scroll ? D.WORLD.spawnScroll * dt : 0))) {
+        if (!t.hit && sweptBodyHit(D, this.lanes, this.carX, this.carY, t, px + (t.scroll ? D.WORLD.spawnScroll * dt : 0), this.veh)) {
           t.hit = true;
           this.applySlow(D.RULES.slowMs, D.RULES.slowMult);
           this.dodged = 0;
@@ -553,7 +601,7 @@ window.MANHOLE_CORE = (function () {
     if (this.meters >= this.cfg.distance) {
       this.won = true;
       this.running = false;
-      this.score += D.SCORE.levelBonus * this.level;
+      this.score += D.SCORE.levelBonus * this.level * this.veh.mult;
       ev.push({ t: 'win', meter: this.meters, level: this.level });
     }
     return ev;
@@ -641,15 +689,16 @@ window.MANHOLE_CORE = (function () {
   World.prototype.applyPickup = function (t) {
     var D = this.D, ev = { t: 'pickup', kind: t.kind, x: t.x, y: t.y };
     if (t.kind === 'coin') {
-      ev.gain = pickupScore('coin', this.dodged, D);
+      this.coins++;                                  // 真钱：跨局累计，车库解锁用
+      ev.gain = pickupScore('coin', this.dodged, D, this.veh);
       this.score += ev.gain;
     } else if (t.kind === 'star') {
-      ev.gain = pickupScore('star', this.dodged, D);
+      ev.gain = pickupScore('star', this.dodged, D, this.veh);
       this.score += ev.gain;
       this.lucky = Math.min(D.RULES.luckyMax, this.lucky + 1);
       ev.lucky = this.lucky;
     } else if (t.kind === 'nitro') {
-      ev.gain = pickupScore('nitro', this.dodged, D);
+      ev.gain = pickupScore('nitro', this.dodged, D, this.veh);
       this.score += ev.gain;
       this.applySpeed(D.RULES.nitroMs, D.RULES.nitroMult);
     } else if (t.kind === 'shield') {
@@ -670,11 +719,11 @@ window.MANHOLE_CORE = (function () {
 
   /* 车当前占用的车道（按车轮落点算，可能与车身中心所在车道不同） */
   World.prototype.occupied = function () {
-    return occupiedLanes(this.D, this.lanes, this.carX);
+    return occupiedLanes(this.D, this.lanes, this.carX, this.veh);
   };
   /* 车是否已安稳对准某条车道（-1 = 正在两条道之间） */
   World.prototype.aligned = function () {
-    return alignedLane(this.D, this.lanes, this.carX);
+    return alignedLane(this.D, this.lanes, this.carX, this.veh);
   };
   /* 建议的目标 x：把车对准车道 i 的中心 */
   World.prototype.laneTargetX = function (i) {
@@ -700,6 +749,10 @@ window.MANHOLE_CORE = (function () {
       distance: world.cfg.distance, score: Math.round(world.score),
       dodged: world.dodged, bestDodged: world.bestDodged,
       nearMisses: world.nearMisses, lucky: world.lucky,
+      coins: world.coins,
+      vehicle: world.veh ? world.veh.id : 'sedan',
+      vehName: world.veh ? world.veh.name : '小轿车',
+      vehMult: world.veh ? world.veh.mult : 1,
       shieldMs: Math.round(world.shieldMs), over: world.over, won: world.won,
       progress: world.progress(), combo: world.combo(),
       carX: world.carX, lanes: world.lanes, speed: world.curSpeed(),
@@ -709,6 +762,8 @@ window.MANHOLE_CORE = (function () {
 
   return {
     World: World,
+    /* 车辆 */
+    playerParams: playerParams,
     /* 空间 */
     roadLeft: roadLeft, roadRight: roadRight, laneWidth: laneWidth,
     laneCenterX: laneCenterX, laneOfX: laneOfX, carWidth: carWidth,
