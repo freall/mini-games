@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>开车不要压井盖儿 · 小游戏乐园</title>
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-app="MANHOLE_APP" data-game="manhole" data-home="../">
+<div class="view active" id="viewManhole">
+
+
+<div class="mh-app">
+
+  <header class="mh-titlebar">
+    <button class="mh-home" type="button" data-back-home aria-label="返回小游戏乐园">← 乐园</button>
+    <div class="mh-brand">
+      <div class="mh-mark" aria-hidden="true">🕳️</div>
+      <div>
+        <h1>开车不要压井盖儿</h1>
+        <p>DON'T HIT THE MANHOLES</p>
+      </div>
+    </div>
+    <button class="mh-icon-btn" id="mhBtnSound" type="button" title="音效开关 (M)" aria-label="音效开关">🔊</button>
+  </header>
+
+  <div class="mh-hud">
+    <div class="mh-stat score"><div class="k">得分</div><div class="v" id="mhScore">0</div></div>
+    <div class="mh-stat"><div class="k">关卡</div><div class="v" id="mhLevel">1</div></div>
+    <div class="mh-stat combo"><div class="k">连击</div><div class="v" id="mhCombo">×1</div></div>
+    <div class="mh-stat"><div class="k">车速</div><div class="v" id="mhSpeed">0</div></div>
+    <div class="mh-stat"><div class="k">最高分</div><div class="v" id="mhBest">0</div></div>
+    <div class="mh-stat"><div class="k">生命</div><div class="v mh-life" id="mhLives">❤</div></div>
+  </div>
+
+  <div class="mh-goal">
+    <span class="lbl">进度</span>
+    <span class="name" id="mhLvName">小区门口</span>
+    <div class="track"><i id="mhProgress"></i></div>
+    <span class="txt" id="mhLeft">620 m</span>
+  </div>
+
+  <div class="mh-stage">
+    <canvas id="mhCanvas" width="900" height="640" aria-label="游戏画面：避开路面上的井盖"></canvas>
+    <div class="mh-countdown" id="mhCountdown"></div>
+
+    <!-- 开始界面 -->
+    <div class="mh-ov show" id="mhOvStart">
+      <div class="mh-panel">
+        <div class="mh-art" aria-hidden="true">🕳️</div>
+        <h2>开车不要压井盖儿</h2>
+        <div class="mh-en">DON'T HIT THE MANHOLES</div>
+        <p class="mh-lead">夜里的环线，井盖全都掀开了盖。<br><b>车轮压到井盖就算输</b> —— 没有第二条命。</p>
+        <div class="mh-rules">
+          <div class="mh-rule"><i>🛞</i><span><b>车轮</b>压到井盖算压到（车身正中也算）</span></div>
+          <div class="mh-rule"><i>↔️</i><span>点击 / 拖动 / <b>← →</b> 并线躲开</span></div>
+          <div class="mh-rule"><i>💰</i><span>金币加分，<b>贴着井盖擦过去</b>有惊险奖励</span></div>
+          <div class="mh-rule"><i>⭐</i><span>幸运星能<b>顶掉一次</b>压盖</span></div>
+          <div class="mh-rule"><i>🛡️</i><span>护盾短时间<b>撞碎井盖</b>；氮气加速冲分</span></div>
+          <div class="mh-rule"><i>🚧</i><span>路锥减速断连击，但<b>不致命</b></span></div>
+        </div>
+        <button class="mh-btn" id="mhBtnStart" type="button" data-primary-action>上路</button>
+        <button class="mh-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+        <div class="mh-hint">桌面端 <b>← →</b> 长按连续横移 · 也可直接<b>拖动鼠标</b>控制车位<br>移动端<b>按住拖动</b> · <kbd>M</kbd> 音效 · <kbd>Esc</kbd> 返回乐园</div>
+      </div>
+    </div>
+
+    <!-- 过关界面 -->
+    <div class="mh-ov" id="mhOvLevel">
+      <div class="mh-panel">
+        <div class="mh-art" aria-hidden="true">🏁</div>
+        <h2>过关！</h2>
+        <div class="mh-en">LEVEL CLEAR</div>
+        <p class="mh-lead">前方路段更窄、井盖更密、车速更快。<br>稳住。</p>
+        <button class="mh-btn" id="mhBtnLevelUp" type="button" data-primary-action>进入下一关</button>
+        <button class="mh-btn ghost" id="mhBtnQuit" type="button">收车结算</button>
+      </div>
+    </div>
+
+    <!-- 结算界面 -->
+    <div class="mh-ov" id="mhOvOver">
+      <div class="mh-panel">
+        <div class="mh-art" id="mhROverArt" aria-hidden="true">💥</div>
+        <h2 id="mhROverTitle">压到井盖了！</h2>
+        <div class="mh-en">GAME OVER</div>
+        <div class="mh-why" id="mhCrashWhy"></div>
+        <div class="mh-result">
+          <div class="mh-rcell"><div class="k">到达关卡</div><div class="v" id="mhRLevel">1</div></div>
+          <div class="mh-rcell"><div class="k">本局得分</div><div class="v" id="mhRScore">0</div></div>
+          <div class="mh-rcell"><div class="k">行驶里程</div><div class="v" id="mhRMeters">0 m</div></div>
+          <div class="mh-rcell"><div class="k">最高分</div><div class="v" id="mhRBest">0</div></div>
+        </div>
+        <div class="mh-record" id="mhRRecord">🎉 新纪录！</div>
+        <button class="mh-btn" id="mhBtnRetry" type="button" data-primary-action>再来一局</button>
+        <button class="mh-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+        <div class="mh-hint" id="mhRTip">提示：留意车头前的井盖，提前一条车道并线比临门一脚更稳。</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mh-help">
+    <span>← → 并线</span><span>🖱️ 拖动控车</span><span>💰 擦边有奖励</span>
+    <span><button type="button" data-back-home>返回小游戏乐园</button></span>
+  </div>
+
+</div>
+</div>
+<script src="../assets/manhole-data.js"></script>
+<script src="../assets/manhole-core.js"></script>
+<script src="../assets/manhole.js"></script>
+<script src="../assets/boot.js"></script>
+</body>
+</html>

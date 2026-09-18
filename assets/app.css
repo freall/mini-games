@@ -1146,3 +1146,192 @@ button{font-family:inherit}
   .mr-lead{margin-top:9px;line-height:1.7}
   .mr-codebook{margin-top:10px;padding:8px}
 }
+
+/* SECTION: manhole-styles · 开车不要压井盖儿（作用域限定 #viewManhole，不外泄）
+   视觉基调：深夜公路 + 霓虹尾灯，画布是主角，HUD 做减法压在上下两端 */
+#viewManhole{
+  --mh-bg:#05070e;
+  --mh-panel:#0b1020;
+  --mh-line:rgba(140,180,255,.16);
+  --mh-ink:#e8eefc;
+  --mh-dim:#8a97b5;
+  --mh-red:#ff4d5e;
+  --mh-amber:#ffc061;
+  --mh-green:#5cf2a8;
+  background:
+    radial-gradient(900px 520px at 50% -12%, rgba(255,80,100,.10), transparent 62%),
+    radial-gradient(760px 460px at 92% 108%, rgba(80,140,255,.10), transparent 62%),
+    linear-gradient(170deg,#0b1020 0%,var(--mh-bg) 55%,#03050a 100%);
+  color:var(--mh-ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,sans-serif;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:14px 12px 18px;
+}
+#viewManhole .mh-app{width:100%;max-width:760px;display:flex;flex-direction:column;gap:10px}
+
+/* 顶栏 */
+#viewManhole .mh-titlebar{display:flex;align-items:center;gap:12px}
+#viewManhole .mh-home{
+  background:rgba(255,255,255,.05);border:1px solid var(--mh-line);color:var(--mh-ink);
+  border-radius:10px;padding:8px 13px;font-size:13px;cursor:pointer;transition:.18s;white-space:nowrap;
+}
+#viewManhole .mh-home:hover{background:rgba(255,255,255,.11);border-color:rgba(140,180,255,.34)}
+#viewManhole .mh-brand{display:flex;align-items:center;gap:11px;flex:1;min-width:0}
+#viewManhole .mh-mark{
+  width:44px;height:44px;border-radius:13px;flex:0 0 auto;
+  background:linear-gradient(150deg,#2b3550,#151b2e);
+  border:1px solid rgba(140,180,255,.22);
+  display:flex;align-items:center;justify-content:center;font-size:23px;
+}
+#viewManhole .mh-brand h1{font-size:16px;font-weight:800;letter-spacing:.02em}
+#viewManhole .mh-brand p{font-size:10px;color:var(--mh-dim);letter-spacing:.16em;margin-top:2px}
+#viewManhole .mh-icon-btn{
+  width:40px;height:40px;border-radius:11px;flex:0 0 auto;
+  background:rgba(255,255,255,.05);border:1px solid var(--mh-line);
+  color:var(--mh-ink);font-size:17px;cursor:pointer;transition:.18s;
+}
+#viewManhole .mh-icon-btn:hover{background:rgba(255,255,255,.11)}
+#viewManhole .mh-icon-btn.off{opacity:.45}
+
+/* HUD */
+#viewManhole .mh-hud{
+  display:grid;grid-template-columns:repeat(6,1fr);gap:7px;
+}
+#viewManhole .mh-stat{
+  background:rgba(255,255,255,.035);border:1px solid var(--mh-line);
+  border-radius:10px;padding:7px 9px;text-align:center;min-width:0;
+}
+#viewManhole .mh-stat .k{font-size:10px;color:var(--mh-dim);letter-spacing:.06em;margin-bottom:3px;white-space:nowrap}
+#viewManhole .mh-stat .v{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+#viewManhole .mh-stat.score .v{color:var(--mh-amber)}
+#viewManhole .mh-stat.combo .v{color:var(--mh-dim)}
+#viewManhole .mh-stat.combo .v.hot{color:#ff9ec4;text-shadow:0 0 12px rgba(255,120,180,.65)}
+#viewManhole .mh-life{font-size:17px}
+#viewManhole .mh-life.shield{filter:drop-shadow(0 0 8px rgba(92,242,168,.9))}
+#viewManhole .mh-life.lucky{filter:drop-shadow(0 0 8px rgba(255,192,97,.9))}
+
+/* 进度条 */
+#viewManhole .mh-goal{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,.035);border:1px solid var(--mh-line);
+  border-radius:10px;padding:8px 12px;
+}
+#viewManhole .mh-goal .lbl{font-size:10.5px;color:var(--mh-dim);letter-spacing:.08em;flex:0 0 auto}
+#viewManhole .mh-goal .track{
+  flex:1;height:9px;border-radius:6px;background:rgba(255,255,255,.07);overflow:hidden;min-width:40px;
+}
+#viewManhole .mh-goal .track i{
+  display:block;height:100%;width:0%;border-radius:6px;
+  background:linear-gradient(90deg,#ff8a4c,#ffc061,#5cf2a8);
+  transition:width .12s linear;
+}
+#viewManhole .mh-goal .txt{font-size:11.5px;font-weight:700;flex:0 0 auto;font-variant-numeric:tabular-nums}
+#viewManhole .mh-goal .name{font-size:11px;color:var(--mh-dim);flex:0 0 auto;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 画布容器 */
+#viewManhole .mh-stage{
+  position:relative;border-radius:16px;overflow:hidden;
+  border:1px solid rgba(140,180,255,.20);
+  box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.03);
+  background:#05070e;
+}
+#viewManhole #mhCanvas{
+  display:block;width:100%;height:auto;
+  aspect-ratio:900/640;
+  touch-action:none;cursor:grab;
+}
+#viewManhole #mhCanvas:active{cursor:grabbing}
+
+/* 倒计时 */
+#viewManhole .mh-countdown{
+  position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  font-size:84px;font-weight:900;color:#fff;letter-spacing:.04em;
+  text-shadow:0 0 40px rgba(255,120,140,.8),0 6px 26px rgba(0,0,0,.7);
+  pointer-events:none;
+}
+#viewManhole .mh-countdown.show{display:flex;animation:mhPop .42s ease-out}
+#viewManhole .mh-countdown.go{color:#8fffc0;text-shadow:0 0 46px rgba(92,242,168,.9)}
+@keyframes mhPop{0%{transform:scale(.55);opacity:0}55%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:.94}}
+
+/* 覆盖层 —— position:fixed 铺满视口
+   踩过的坑：覆盖层若贴在"高度由内容决定"的容器里，容器塌陷时会把它裁掉，
+   主按钮被切到可视区外点不到（消消乐与摩尔斯都栽过）。
+   这里直接 fixed + 高 z-index，保证任何窗口尺寸下按钮都在可视区内。 */
+#viewManhole .mh-ov{
+  position:fixed;inset:0;z-index:60;display:none;
+  align-items:center;justify-content:center;padding:20px;
+  background:rgba(3,5,10,.80);backdrop-filter:blur(9px);
+}
+#viewManhole .mh-ov.show{display:flex}
+#viewManhole .mh-panel{
+  width:100%;max-width:430px;max-height:92vh;overflow-y:auto;
+  background:linear-gradient(168deg,#141c30,#0a0f1c 62%);
+  border:1px solid rgba(140,180,255,.24);border-radius:20px;
+  padding:24px 22px;text-align:center;
+  box-shadow:0 26px 70px rgba(0,0,0,.65);
+}
+#viewManhole .mh-panel .mh-art{font-size:52px;line-height:1;margin-bottom:10px}
+#viewManhole .mh-panel h2{font-size:22px;font-weight:800;letter-spacing:.01em}
+#viewManhole .mh-panel .mh-en{font-size:10px;color:var(--mh-dim);letter-spacing:.24em;margin:6px 0 14px}
+#viewManhole .mh-panel .mh-lead{font-size:13px;line-height:1.75;color:#c3cee6}
+#viewManhole .mh-rules{display:flex;flex-direction:column;gap:7px;margin:16px 0 18px;text-align:left}
+#viewManhole .mh-rule{
+  display:flex;align-items:center;gap:9px;font-size:12.5px;line-height:1.45;
+  background:rgba(255,255,255,.035);border:1px solid var(--mh-line);
+  border-radius:9px;padding:8px 11px;color:#c3cee6;
+}
+#viewManhole .mh-rule i{font-style:normal;flex:0 0 auto;font-size:15px}
+#viewManhole .mh-rule b{color:#fff}
+#viewManhole .mh-btn{
+  display:block;width:100%;margin-top:9px;padding:13px;border:0;border-radius:12px;
+  font-size:15px;font-weight:800;cursor:pointer;transition:.18s;
+  background:linear-gradient(135deg,#ff4d5e,#ff9a4c);color:#fff;
+  box-shadow:0 10px 26px rgba(255,90,110,.34);
+}
+#viewManhole .mh-btn:hover{filter:brightness(1.09);transform:translateY(-1px)}
+#viewManhole .mh-btn.ghost{
+  background:rgba(255,255,255,.05);color:var(--mh-ink);
+  border:1px solid var(--mh-line);box-shadow:none;font-weight:600;
+}
+#viewManhole .mh-btn.ghost:hover{background:rgba(255,255,255,.11)}
+#viewManhole .mh-hint{font-size:11px;color:var(--mh-dim);line-height:1.7;margin-top:14px}
+#viewManhole .mh-hint kbd{
+  background:rgba(255,255,255,.09);border:1px solid var(--mh-line);
+  border-radius:5px;padding:1px 5px;font-size:10.5px;font-family:inherit;
+}
+#viewManhole .mh-result{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0 6px}
+#viewManhole .mh-rcell{
+  background:rgba(255,255,255,.04);border:1px solid var(--mh-line);
+  border-radius:10px;padding:10px 8px;
+}
+#viewManhole .mh-rcell .k{font-size:10px;color:var(--mh-dim);margin-bottom:4px}
+#viewManhole .mh-rcell .v{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+#viewManhole .mh-record{
+  display:none;font-size:12.5px;font-weight:800;color:var(--mh-amber);
+  margin:12px 0 2px;
+}
+#viewManhole .mh-record.show{display:block;animation:mhPop .5s ease-out}
+#viewManhole .mh-why{
+  font-size:12px;line-height:1.65;color:#ffb8b8;
+  background:rgba(255,70,90,.10);border:1px solid rgba(255,90,110,.28);
+  border-radius:9px;padding:9px 11px;margin:12px 0 2px;text-align:left;
+}
+#viewManhole .mh-why:empty{display:none}
+
+/* 底部操作说明 */
+#viewManhole .mh-help{
+  display:flex;flex-wrap:wrap;gap:9px 16px;justify-content:center;align-items:center;
+  font-size:11.5px;color:var(--mh-dim);
+}
+#viewManhole .mh-help button{
+  background:rgba(255,255,255,.05);border:1px solid var(--mh-line);color:var(--mh-ink);
+  border-radius:8px;padding:5px 11px;font-size:11.5px;cursor:pointer;transition:.18s;
+}
+#viewManhole .mh-help button:hover{background:rgba(255,255,255,.11)}
+
+@media (max-width:640px){
+  #viewManhole .mh-hud{grid-template-columns:repeat(3,1fr)}
+  #viewManhole .mh-goal .name{display:none}
+  #viewManhole .mh-panel{padding:20px 16px}
+  #viewManhole .mh-panel .mh-art{font-size:44px}
+}

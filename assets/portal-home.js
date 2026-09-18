@@ -40,8 +40,17 @@
       setTxt('ptMorseMastery', mastered > 0 ? mastered + ' / ' + total : '—');
     } catch (e) { setTxt('ptMorseMastery', '—'); }
 
+    /* 开车不要压井盖儿：最高分 + 最远关卡 */
+    var mhBest = readStore('manhole-best', 0);
+    var mhLevel = readStore('manhole-level', 1);
+    setTxt('ptMhBest', mhBest > 0 ? mhBest.toLocaleString('zh-CN') : '—');
+    setTxt('ptMhLevel', mhLevel > 1 ? '第 ' + mhLevel + ' 关' : '未上路');
+
     var badge = document.getElementById('ptRecordBadge');
-    if (badge) { badge.classList.toggle('show', sushiBest > 0 || m3Best > 0 || morseBest > 0); }
+    if (badge) {
+      badge.classList.toggle('show',
+        sushiBest > 0 || m3Best > 0 || morseBest > 0 || mhBest > 0);
+    }
   }
 
   /* SECTION: cover · 消消乐封面，用与棋盘一致的图标素材
