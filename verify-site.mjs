@@ -159,7 +159,13 @@ function printReport(res) {
 
 /* SECTION: selftest
    把工程复制到临时目录，注入 4 类缺陷，断言自检都能报出来。
-   自检本身也是代码，也要有测试 —— 否则就是个永远绿的摆设。 */
+   自检本身也是代码，也要有测试 —— 否则就是个永远绿的摆设。
+
+   实现注意（踩过的坑）：早期版本每个用例都把 assets/site-src/site 三个目录
+   整个 rmSync + cpSync 一遍 —— 一次 selftest 要搅动 ~200 个文件，
+   在本机的 node 22.22.2 上会触发 libuv 的原生崩溃（0xC0000005，必现）。
+   现在只在开局做一次完整 pristine 拷贝，每个用例只回滚**它自己动过的那一个
+   路径**，搅动量降到个位数文件，任何 node 版本都稳定。 */
 function selftest() {
   const tmp = join(tmpdir(), 'mini-games-verify-selftest-' + process.pid);
   const pristine = join(tmp, 'pristine');
@@ -168,33 +174,40 @@ function selftest() {
   for (const f of ['games.config.mjs', '小游戏乐园.html']) { cpSync(join(SCRIPT_DIR, f), join(pristine, f)); }
   for (const d of ['assets', 'site-src', 'site']) { cpSync(join(SCRIPT_DIR, d), join(pristine, d), { recursive: true }); }
   mkdirSync(tmp, { recursive: true });
+  /* 工作树只从 pristine 完整铺一次；之后每个用例各自恢复自己改过的文件 */
+  for (const f of ['games.config.mjs', '小游戏乐园.html']) { cpSync(join(pristine, f), join(tmp, f)); }
+  for (const d of ['assets', 'site-src', 'site']) { cpSync(join(pristine, d), join(tmp, d), { recursive: true }); }
 
+  /* restore：把该用例动过的路径恢复成 pristine 的样子（只碰这一处） */
   const cases = [
-    ['删除 site 里被引用的脚本', () => rmSync(join(tmp, 'site/assets/boot.js'), { force: true }),
+    ['删除 site 里被引用的脚本',
+      () => rmSync(join(tmp, 'site/assets/boot.js'), { force: true }),
+      (done) => cpSync(join(pristine, 'site/assets/boot.js'), join(tmp, 'site/assets/boot.js')),
       /引用的文件不存在/],
-    ['门户卡片 data-goto 拼错', () => patch(join(tmp, '小游戏乐园.html'), 'data-goto="match3"', 'data-goto="match3x"'),
+    ['门户卡片 data-goto 拼错',
+      () => patch(join(tmp, '小游戏乐园.html'), 'data-goto="match3"', 'data-goto="match3x"'),
+      (done) => cpSync(join(pristine, '小游戏乐园.html'), join(tmp, '小游戏乐园.html')),
       /门户缺卡片/],
-    ['页面缺少脚本要用的 DOM id', () => patch(join(tmp, 'site/match3/index.html'), 'id="m3Score"', 'data-x="m3Score"'),
+    ['页面缺少脚本要用的 DOM id',
+      () => patch(join(tmp, 'site/match3/index.html'), 'id="m3Score"', 'data-x="m3Score"'),
+      (done) => cpSync(join(pristine, 'site/match3/index.html'), join(tmp, 'site/match3/index.html')),
       /缺少脚本要用的 DOM id/],
-    ['site 里留下无用文件', () => writeFileSync(join(tmp, 'site/old-game.html'), 'x'),
+    ['site 里留下无用文件',
+      () => writeFileSync(join(tmp, 'site/old-game.html'), 'x'),
+      (done) => rmSync(join(tmp, 'site/old-game.html'), { force: true }),
       /没有被任何页面引用/]
   ];
 
   let bad = 0;
   console.log('=== verify-site --selftest · 注入缺陷自检是否报得出来 ===');
-  for (const [name, mutate, expect] of cases) {
-    /* 每个用例都从 pristine 副本重来，避免用例之间互相污染 */
-    for (const f of ['games.config.mjs', '小游戏乐园.html']) { cpSync(join(pristine, f), join(tmp, f)); }
-    for (const d of ['assets', 'site-src', 'site']) {
-      rmSync(join(tmp, d), { recursive: true, force: true });
-      cpSync(join(pristine, d), join(tmp, d), { recursive: true });
-    }
+  for (const [name, mutate, restore, expect] of cases) {
     mutate();
     const res = verify(tmp);
     const msgs = [...res.fails, ...res.warns];
     const hit = msgs.some(m => expect.test(m));
     console.log((hit ? '  ✓ 已捕获  ' : '  ✗ 漏报    ') + name);
     if (!hit) { bad++; }
+    restore(hit);
   }
   rmSync(tmp, { recursive: true, force: true });
   console.log(bad ? `\n❌ 自检有 ${bad} 类缺陷漏报` : '\n✅ 4 类缺陷全部能报出');
