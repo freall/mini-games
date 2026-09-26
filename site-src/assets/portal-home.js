@@ -46,10 +46,17 @@
     setTxt('ptMhBest', mhBest > 0 ? mhBest.toLocaleString('zh-CN') : '—');
     setTxt('ptMhLevel', mhLevel > 1 ? '第 ' + mhLevel + ' 关' : '未上路');
 
+    /* 烽火军棋：最高分 + 胜场/已推进到第几关 */
+    var jqBest = readStore('junqi-best', 0);
+    var jqWins = readStore('junqi-wins', 0);
+    var jqLv = readStore('junqi-level', 1);
+    setTxt('ptJqBest', jqBest > 0 ? jqBest.toLocaleString('zh-CN') : '—');
+    setTxt('ptJqWins', jqWins > 0 ? jqWins + ' 胜 · 第 ' + jqLv + ' 关' : '尚未取胜');
+
     var badge = document.getElementById('ptRecordBadge');
     if (badge) {
       badge.classList.toggle('show',
-        sushiBest > 0 || m3Best > 0 || morseBest > 0 || mhBest > 0);
+        sushiBest > 0 || m3Best > 0 || morseBest > 0 || mhBest > 0 || jqBest > 0);
     }
   }
 

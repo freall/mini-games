@@ -1,6 +1,6 @@
 # 小游戏乐园 · mini-games
 
-四款纯前端小游戏（无框架、无构建依赖、无后端）：
+五款纯前端小游戏（无框架、无构建依赖、无后端）：
 
 | 游戏 | 玩法 | 目录 |
 | --- | --- | --- |
@@ -8,11 +8,33 @@
 | 🧩 AI图标消消乐 | 8×8 三消：交换 AI 工具图标凑三连，四连/五连生成特殊图标 | `site/match3/` |
 | 📡 深夜电台 · 摩尔斯电码 | 三个模块：**发报**（用电键发码）· **抄收**（听或看码解码）· **数字**（数字编码+解码） | `site/morse/` |
 | 🚗 开车不要压井盖儿 | Canvas 夜间躲避：**车轮压到井盖就算输**，并线躲盖、擦边拿惊险奖励、连击倍率、10 关 + 无尽；**车库六辆车**（自行车→赛车：速度/宽度/转向/倍率各不相同，金币跨局累计解锁） | `site/manhole/` |
+| ⚑ 烽火军棋 | 陆战棋对电脑：**红方是你，蓝方全自动**。轮流走子，扛走对方军旗就算赢；铁路直行、工兵拐弯、行营免打、大本营一进不出；9 个关口按军衔晋级，暗棋/明棋两种玩法 | `site/junqi/` |
 
 线上地址：**https://freall.github.io/mini-games/**（门户 → 各游戏独立子页）
 
 摩尔斯那一页里用顶部标签换模块，也支持深链直接进某个模块：
 `/morse/?mode=recv`（抄收）、`/morse/?mode=digit`（数字）。
+
+军棋那一页支持深链直接进某个关口与玩法：`/junqi/?level=4`、`/junqi/?mode=open`（明棋）、
+`/junqi/?mode=dark`（暗棋，默认）。关口受进度限制（`?level=` 超过已解锁关卡会被夹回来）。
+
+### ⚑ 烽火军棋的规则口径
+
+本作实现的是**二人陆战棋**，棋盘几何在 `assets/junqi-data.js` 里定义（5 列 × 12 行 = 60 个点，
+每方半场 25 兵站 + 5 行营 + 2 大本营，环行营区一圈铁路，中线 5 点两两对接且都是铁路）。
+规则清单与实现细节都写在 `assets/junqi-core.js` 的头部注释里，一句话版：
+
+| 主题 | 规则 |
+| --- | --- |
+| 走子 | 公路一步（含进出**行营**的斜线）；**铁路直线任意格**，途中有子即停；**只有工兵能在铁路上拐弯** |
+| 行营 | 坐在行营里的子**不得被攻击**，但它自己能打出去 |
+| 大本营 | **只有一个入口**；走进去的子**永远出不来**；军旗必须落在大本营 |
+| 吃子 | 大子吃小子、同级同归于尽；**炸弹与任何子同归于尽**；**地雷只认工兵**；扛走军旗立即获胜 |
+| 暗棋 | 对方军衔不公开：阵亡者一律翻开，活着的按公开战果**收窄嫌疑集合**（点对方的子可看嫌疑分布）；司令阵亡则被迫亮出军旗 |
+| 判负 | 军旗被扛 / 轮到你却无任何合法着法（困毙）；长期无伤亡按剩余子力判定 |
+
+AI 与玩家**共用同一套嫌疑分布**做期望值，不看底牌 —— 单测里有一条专门钉这点：
+把两枚未翻开敌子的真实军衔偷偷互换（公开信息不变），AI 的选着必须一模一样。
 
 | 模块 | 练什么 | 怎么玩 |
 | --- | --- | --- |
@@ -32,7 +54,7 @@
                       ┌─────────────────────────────┐
    源（手改这几个）    │ 小游戏乐园.html   各视图 markup + 全局 <style> │
                       │ games.config.mjs  游戏清单（标题/目录/脚本/app/data 属性）│
-                      │ assets/*.js       游戏脚本（sushi 4 / match3 3 / morse 3 / manhole 3）│
+                      │ assets/*.js       游戏脚本（sushi 4 / match3 3 / morse 3 / manhole 3 / junqi 3）│
                       │ site-src/assets/*.js  多页面专用：boot.js / portal-home.js │
                       └──────────────┬──────────────┘
                                      │  node <脚本>（全部单向生成，产物永不反写源）
@@ -47,6 +69,7 @@
   match3/index.html 消消乐页
   morse/index.html 摩尔斯页
   manhole/index.html 井盖页
+  junqi/index.html 军棋页
   assets/app.css + *.js（共享）
 ```
 
@@ -68,12 +91,16 @@
 | `node verify-site.mjs --selftest` | 注入 4 类缺陷，验证自检本身**真的会报警** |
 | `node tools/test-morse-core.mjs` | 摩尔斯核心逻辑单测（113 项断言，纯 node，不需要浏览器） |
 | `node tools/test-manhole-core.mjs` | 井盖核心逻辑单测（244 项断言，含时间窗 DP 的 AI 全关卡可玩性验证 + 每辆车分别过 AI 守门） |
+| `node tools/test-junqi-core.mjs` | 军棋核心逻辑单测（166 项断言：棋盘几何不变式 / 吃子矩阵逐格对照独立规则 / 走子规则 / 暗棋推演 / AI 合法性与不偷看底牌 / 自对局一定收得拢） |
 | `node publish.mjs` | 构建 + 推到 `gh-pages` + 触发 Pages 重建 |
 | `node publish.mjs --dry-run` | 只构建并打印将要发布的提交，不推送 |
 | `node publish.mjs --api` | 强制走 GitHub API 通道发布（git push 不通时用） |
-| `python tools/e2e-smoke.py` | 无头浏览器端到端冒烟（67 项断言：门户跳转 / 四个游戏开局 / 电键发报 / 抄收选答 / 数字编解码 / 井盖操控与压盖判负 / 车库换车 / 返回 / 控制台零报错硬断言） |
+| `python tools/e2e-smoke.py` | 无头浏览器端到端冒烟（91 项断言：门户跳转 / 五个游戏开局 / 电键发报 / 抄收选答 / 数字编解码 / 井盖操控与压盖判负 / 车库换车 / 军棋布阵交换与点击行棋 / 军旗被扛判负 / 扛旗取胜自动晋级 / 门户回显 / 返回 / 控制台零报错硬断言） |
 | `python tools/e2e-smoke.py --url https://freall.github.io/mini-games` | 同一套断言直接打线上 |
-| `python tools/e2e-smoke.py --single dist/小游戏乐园.html` | 单文件交付版冒烟（file:// + 页内路由，14 项断言，另一条代码路径） |
+| `python tools/e2e-smoke.py --single dist/小游戏乐园.html` | 单文件交付版冒烟（20 项断言，file:// + 页内路由，另一条代码路径） |
+
+> 冒烟脚本优先用 playwright 自带的 chromium，起不来时自动退回系统 Chrome
+> （`pip install -U playwright` 之后自带浏览器的构建号常对不上，这时不用重新下载浏览器）。
 
 > `verify-site.mjs` 查结构（文件、引用、DOM id），`tools/e2e-smoke.py` 查"真的能玩"。
 > 后者不是多余的：多页面改造时它抓出了「消消乐开始界面被裁剪、开始按钮点不到」的 P0；
@@ -93,10 +120,11 @@ python -m http.server 18080 --directory site     # http://127.0.0.1:18080/
 
 ---
 
-## 三、加一款新游戏（只碰 3 个地方）
+## 三、加一款新游戏（只碰 3 个地方 + 单文件路由表）
 
 > 摩尔斯电码就是照这个流程加进来的：入口加视图 + 门户加卡片 + 配置加一条，
-> 构建脚本、`boot.js`、门户导航**一行都没改**。
+> 构建脚本、`boot.js`、多页面门户导航**一行都没改**。
+> 军棋（第五款）照做，同样没碰构建脚本与 `boot.js`。
 
 1. **入口 `小游戏乐园.html` 加视图**（带 `SECTION` 标记，视图内的 `<style>` 会被自动抽到共享 CSS）：
 
@@ -138,6 +166,14 @@ python -m http.server 18080 --directory site     # http://127.0.0.1:18080/
 node build-pages.mjs && node verify-site.mjs && node publish.mjs
 ```
 
+**还有两处别漏**（`verify-site` 查不到，因为它们不影响产物结构）：
+
+- `assets/portal.js`：单文件交付版的页内路由表 `VIEW_IDS` / `APPS` / `mounted` 三处都要加一条，
+  否则 `dist/` 版点卡片进不去新游戏（多页面版走 `boot.js`，按 `data-app` 挂载，不需要改）。
+- 门户成绩回显有**两份实现**：`assets/portal.js`（单文件版）与 `site-src/assets/portal-home.js`
+  （多页面版）。只改一份就会出现"本地单文件能看到、线上门户卡片是空的"
+  （井盖游戏就漏过一次，见 MANIFEST v6）。两边都要写 `setTxt('ptXxx…')`。
+
 **漏改会被 verify-site 拦住**：视图标记与配置不一致、门户少卡片、页面引用的脚本不存在、
 某页缺脚本要用的 DOM id、`data-app` 与配置不符或脚本里没挂上那个全局名、
 site/ 里有没被引用的残留文件 —— 都会直接报错或告警。
@@ -148,7 +184,7 @@ site/ 里有没被引用的残留文件 —— 都会直接报错或告警。
 ## 四、部署
 
 - Pages 源：分支 `gh-pages` 根目录（仓库 Settings → Pages → Build and deployment）。
-  线上地址 https://freall.github.io/mini-games/ ，子页 `/sushi/`、`/match3/`、`/morse/`、`/manhole/`。
+  线上地址 https://freall.github.io/mini-games/ ，子页 `/sushi/`、`/match3/`、`/morse/`、`/manhole/`、`/junqi/`。
 - 页面里全部使用**相对路径**（`assets/app.css`、`../assets/game.js`、`data-goto="sushi"`），
   所以放在用户名仓库的子路径下也不会挂。
 - `publish.mjs` 的实现要点：不切分支、不动工作区 —— 用临时 `GIT_INDEX_FILE` +
@@ -222,14 +258,13 @@ site/ 里有没被引用的残留文件 —— 都会直接报错或告警。
     守门断言是单测里那个**时间窗 DP 的 AI**：只看行序列与行距、跑真实横向速度，
     60 个用例全通关才算「关卡对人类公平」。
 
-11. **本机 node 版本坑（2026-09-18）**
-    本机裸 `node`（22.22.2）跑 `verify-site.mjs --selftest` 会原生崩溃
-    （0xC0000005，必现，疑与高频 fs 复制/删除相关），受管 node 22.12.0 一切正常。
+11. **本机 node 版本坑（更新到 2026-09-26）**
+    当年裸 `node`（22.22.2）跑 `verify-site.mjs --selftest` 会原生崩溃
+    （0xC0000005，必现，疑与高频 fs 复制/删除相关）。selftest 已改成**低搅动实现**：
+    每用例只回滚自己动过的那一个文件，不再整目录 rm+cp —— 现在裸 node（本机 v24.21.0）
+    跑 `node verify-site.mjs --selftest` 已稳定通过，无需再指定受管 node。
     另外 WorkBuddy 沙箱给受管 node 注入了 safe-delete shim：单次 rmSync 超过 50 个文件
     会被拦（`build-pages.mjs` 清空 site/ 时触发）。
-    → 本机跑法：**构建/自检/单测用裸 node；`--selftest` 用受管 22.12.0**：
-    `C:\Users\cqr\.workbuddy\binaries\node\versions\22.12.0\node.exe verify-site.mjs --selftest`
-    （selftest 已改为低搅动实现：每用例只回滚自己动过的文件。）
 
 12. **新参数透传要带上全部下游字段 —— 尤其视觉字段**
     车辆系统把 `playerParams()` 合成的对象传给判定与渲染两层，
@@ -247,6 +282,31 @@ site/ 里有没被引用的残留文件 —— 都会直接报错或告警。
     若改成"只有纵向变快、横向不变"，快车会物理不可解；若"横纵都不乘"，
     速度就只剩视觉效果没有玩法意义。
 
+14. **暗棋的"嫌疑集合"必须从全集开始，且评分不许碰底牌**（军棋，加进来第一天就踩）
+    每枚棋子带一个 `mask`（公开信息能推到哪一步）。第一版把它初始化成
+    `1 << 自己的军衔` —— 于是 AI 的期望值和界面上的"嫌疑"提示**直接看穿暗棋**
+    （点开对方大本营里的子，它写着"军旗 100%"，而那正是底牌）。
+    规则只错了一处：`mask` 开局必须是全集合，只能被公开战果收窄（"它吃了你团长还活着"
+    → 收窄成能吃掉团长的那几个军衔）。更要紧的是评分函数里藏着一句
+    `if (BY_KIND[def.k].flag) s += 40` —— 读的是**未翻开敌子的真实军衔**，等于作弊。
+    → 现在用两条断言钉住：① 开局每枚未翻开的敌子嫌疑都 >3 个；
+    ② 把两枚未翻开敌子的 `k` 偷偷互换（revealed/mask/位置/子力构成全不变），
+    `evValue` 与 `chooseMove` 的结果必须**一模一样**。这类"逻辑正确但信息非法"的 bug
+    靠看是看不出来的，只能靠断言。
+
+15. **深链参数会被 activate() 里的读档覆盖**（军棋 `?level=&mode=`）
+    第一版在 `mount()` 里解析 URL，然后 `activate()` 又 `loadStore()` 把
+    `hidden/level` 从 localStorage 读回来 —— 于是"进明棋关"的书签实际停在暗棋，
+    而且只在**二次进入视图**时复现（首次 mount 后紧跟 activate，看起来是对的）。
+    → 把 URL 解析挪进 `loadStore()` 末尾，让"存档 → 深链覆盖"成为唯一顺序。
+
+16. **favicon 的 404 会把"控制台零报错"这条硬断言染红**
+    冒烟脚本对 `console.error` 计红，而浏览器每次导航都要 `/favicon.ico`；
+    用系统 Chrome 跑（playwright 自带浏览器构建号对不上时的退路）就会多出 6 条 404。
+    报错文本里不带 URL，按关键字过滤等于给真 404 开后门 ——
+    → 直接补一个内联 `data:` SVG favicon（`build-pages.mjs` 的骨架 + 入口 head），
+    404 消失，硬断言保持零豁免。顺带线上标签页也有图标了。
+
 ---
 
 ## 六、目录速查
@@ -255,7 +315,7 @@ site/ 里有没被引用的残留文件 —— 都会直接报错或告警。
 mini-games/
 ├─ 小游戏乐园.html          ← 源：各视图 markup + 全局样式（本地双击即玩）
 ├─ games.config.mjs         ← 源：游戏清单（唯一事实来源）
-├─ assets/*.js              ← 源：游戏脚本（morse-data/core/morse、game-*、match3-*）
+├─ assets/*.js              ← 源：游戏脚本（morse/manhole/junqi 各 -data/-core/主模块）
 ├─ site-src/assets/*.js     ← 源：多页面专用脚本（boot.js / portal-home.js）
 ├─ build-pages.mjs          → site/          多页面站点
 ├─ build-single.mjs         → dist/          自包含单文件交付版
@@ -264,6 +324,7 @@ mini-games/
 ├─ tools/e2e-smoke.py       无头浏览器端到端冒烟（--single 验单文件版；截图落 tools/_shots/，已忽略）
 ├─ tools/test-morse-core.mjs 摩尔斯核心逻辑单测（纯 node：码表/判定/计分/抄收选项/数字出题）
 ├─ tools/test-manhole-core.mjs 井盖核心逻辑单测（纯 node：判定/生成/计分/时间窗 DP AI 可玩性）
+├─ tools/test-junqi-core.mjs 军棋核心逻辑单测（纯 node：棋盘几何/吃子矩阵/走子规则/暗棋推演/AI 不偷看底牌/自对局收得拢）
 ├─ site/                    （git 忽略）多页面产物，也是 Pages 发布内容
 ├─ dist/                    （git 忽略）单文件交付版
 ├─ history/                 版本台账（v1…v7 与 MANIFEST.md）

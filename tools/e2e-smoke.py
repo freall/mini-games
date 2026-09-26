@@ -65,22 +65,35 @@ HITTABLE = """(id) => {
 }"""
 
 
+def launch(p):
+    """优先用 playwright 自带的 chromium。自带浏览器的构建号与 pip 里的
+    playwright 版本对不上时（升级过 playwright 就会出现这种状况），退回系统
+    Chrome/Edge —— 冒烟要验的是页面行为，用哪个 Chromium 外壳不影响结论。"""
+    try:
+        return p.chromium.launch(headless=True)
+    except Exception as e:
+        log('自带 chromium 启动失败（%s），改用系统 Chrome' % str(e)[:60])
+        return p.chromium.launch(headless=True, channel='chrome')
+
+
 def run_single(path):
     """单文件交付版：走的是 portal.js 的 APP_ROUTER（页内切视图），
     与多页面版完全不同的代码路径，所以单独冒烟一遍。"""
     from playwright.sync_api import sync_playwright
+    # README 里给的是相对写法（dist/小游戏乐园.html），file:// 需要绝对路径
+    path = os.path.abspath(path)
     url = 'file:///' + path.replace('\\', '/')
     log('目标：单文件交付版 %s' % url)
     results, errors = [], []
     with sync_playwright() as p:
-        b = p.chromium.launch(headless=True)
+        b = launch(p)
         pg = b.new_context(viewport={'width': 1280, 'height': 900}).new_page()
         pg.on('console', lambda m: errors.append('console.error: ' + m.text) if m.type == 'error' else None)
         pg.on('pageerror', lambda e: errors.append('pageerror: ' + str(e)))
         pg.goto(url, wait_until='load')
         pg.wait_for_timeout(1200)
         results.append(('单文件 标题', pg.title() == '小游戏乐园 · 迷你游戏合集', pg.title()))
-        results.append(('单文件 门户 4 张卡', pg.locator('.pt-card').count() == 4,
+        results.append(('单文件 门户 5 张卡', pg.locator('.pt-card').count() == 5,
                         'cards=%d' % pg.locator('.pt-card').count()))
         results.append(('单文件 页内路由可用', pg.evaluate("() => !!window.APP_ROUTER"), ''))
 
@@ -141,6 +154,29 @@ def run_single(path):
                         pg.evaluate("() => window.MANHOLE_APP.stats().over") is True, ''))
         pg.wait_for_timeout(800)   # 等结算层弹出，截图才有内容
         pg.screenshot(path=os.path.join(SHOTS, 'single-manhole.png'))
+
+        # ---- 单文件版的烽火军棋（页内路由，与多页面版是两条路径） ----
+        pg.evaluate("() => window.APP_ROUTER.go('junqi')")
+        pg.wait_for_timeout(1100)
+        vis = pg.evaluate("() => getComputedStyle(document.getElementById('viewJunqi')).display")
+        results.append(('单文件 切到军棋视图', vis == 'flex', 'display=%s' % vis))
+        results.append(('单文件 军棋模块已挂载',
+                        pg.evaluate("() => !!(window.JUNQI_APP && window.JUNQI_APP.stats().phase)"), ''))
+        results.append(('单文件 军棋棋盘已渲染',
+                        pg.locator('#viewJunqi .jq-p').count() == 50,
+                        'pieces=%d' % pg.locator('#viewJunqi .jq-p').count()))
+        hit = pg.evaluate(HITTABLE, 'jqBtnStart')
+        results.append(('单文件 军棋开局按钮可点', hit == 'OK', hit))
+        pg.locator('#jqBtnStart').click()
+        pg.wait_for_timeout(600)
+        st = pg.evaluate("() => window.JUNQI_APP.stats()")
+        results.append(('单文件 军棋可进布阵', st['phase'] == 'deploy', 'phase=%s' % st['phase']))
+        r = pg.evaluate("() => window.JUNQI_APP._debugMove(0)")
+        results.append(('单文件 军棋可电脑应手（AI 真的走了子）',
+                        r['plies'] >= 2 and r['logRows'] >= 2,
+                        'plies=%d log=%d' % (r['plies'], r['logRows'])))
+        pg.evaluate("() => window.APP_ROUTER.go('portal')")
+        pg.wait_for_timeout(500)
         b.close()
 
     log('')
@@ -181,7 +217,7 @@ def main():
 
     results, errors = [], []
     with sync_playwright() as p:
-        b = p.chromium.launch(headless=True)
+        b = launch(p)
         ctx = b.new_context(viewport={'width': 1280, 'height': 900})
         pg = ctx.new_page()
         pg.on('console', lambda m: errors.append('console.error: ' + m.text) if m.type == 'error' else None)
@@ -195,9 +231,9 @@ def main():
         cover = pg.locator('#ptM3Cover .pt-cover-cell').count()
         pg.screenshot(path=os.path.join(SHOTS, 'portal.png'), full_page=True)
         results.append(('门户标题', pg.title() == '小游戏乐园 · 迷你游戏合集', pg.title()))
-        results.append(('门户卡片数 = 4', cards == 4, 'cards=%d' % cards))
+        results.append(('门户卡片数 = 5', cards == 5, 'cards=%d' % cards))
         results.append(('门户封面图标已渲染', cover >= 6, 'cells=%d' % cover))
-        for i, want in enumerate(['sushi', 'match3', 'morse', 'manhole']):
+        for i, want in enumerate(['sushi', 'match3', 'morse', 'manhole', 'junqi']):
             pg.goto(base + '/', wait_until='load')
             pg.wait_for_timeout(400)
             pg.locator('.pt-card').nth(i).click()
@@ -619,6 +655,162 @@ def main():
         pg.keyboard.press('Escape')
         pg.wait_for_timeout(900)
         results.append(('井盖页 返回乐园按钮', pg.url.rstrip('/') == base, pg.url))
+        pg.close()
+
+        # ---- 军棋页（第五款：红方玩家 vs 蓝方电脑自动） ----
+        pg = new_page()
+        pg.goto(base + '/junqi/', wait_until='load')
+        pg.wait_for_timeout(1100)
+        results.append(('军棋页 挂载 API 可用',
+                        pg.evaluate("!!(window.JUNQI_APP && window.JUNQI_APP.mount && window.JUNQI_APP.stats)"), ''))
+        geo = pg.evaluate("""() => ({
+          hits: document.querySelectorAll('#jqBoard circle.jq-hit').length,
+          pieces: document.querySelectorAll('#jqBoard .jq-p').length,
+          rails: document.querySelectorAll('#jqBoard .jq-rail').length,
+          camps: document.querySelectorAll('#jqBoard .jq-camp').length,
+          hq: document.querySelectorAll('#jqBoard .jq-hq').length,
+          down: document.querySelectorAll('#jqBoard .jq-face-down').length })""")
+        results.append(('军棋页 棋盘几何齐全（60 点 / 50 子 / 37 铁路 / 10 行营 / 4 大本营）',
+                        [geo['hits'], geo['pieces'], geo['rails'], geo['camps'], geo['hq']] == [60, 50, 37, 10, 4],
+                        str(geo)))
+        results.append(('军棋页 暗棋默认藏住蓝方 25 子的军衔', geo['down'] == 25, 'face-down=%d' % geo['down']))
+        hit = pg.evaluate(HITTABLE, 'jqBtnStart')
+        results.append(('军棋页 开局按钮可点', hit == 'OK', hit))
+
+        # 关口解锁到 3 后用深链进来：?level=3&mode=open 必须真的生效
+        pg.evaluate("() => { try { localStorage.setItem('junqi-level','3'); localStorage.setItem('junqi-mode','0');"
+                    " localStorage.removeItem('junqi-best'); localStorage.removeItem('junqi-wins');"
+                    " localStorage.removeItem('junqi-streak'); } catch(e){} }")
+        pg.goto(base + '/junqi/?level=3&mode=open', wait_until='load')
+        pg.wait_for_timeout(1000)
+        s = pg.evaluate("() => window.JUNQI_APP.stats()")
+        results.append(('军棋页 ?level=3&mode=open 深链生效（关口与玩法都按 URL 走）',
+                        s['level'] == 3 and s['hidden'] is False, 'level=%s hidden=%s' % (s['level'], s['hidden'])))
+        results.append(('军棋页 明棋模式不藏军衔',
+                        pg.locator('#jqBoard .jq-face-down').count() == 0,
+                        'face-down=%d' % pg.locator('#jqBoard .jq-face-down').count()))
+
+        # 回默认暗棋，走完整交互链路
+        pg.goto(base + '/junqi/', wait_until='load')
+        pg.wait_for_timeout(1000)
+        pg.locator('#jqBtnStart').click()
+        pg.wait_for_timeout(500)
+        results.append(('军棋页 进入布阵阶段',
+                        pg.evaluate("() => window.JUNQI_APP.stats().phase") == 'deploy',
+                        pg.evaluate("() => window.JUNQI_APP.stats().phase")))
+        pair = pg.evaluate("""() => { const A = window.JUNQI_APP, st = A._state(), C = A._core;
+          const own = C.alivePids(st, 0);
+          const a = own.find(pid => st.pieces[pid].k === 'lianZhang');
+          const b = own.find(pid => pid !== a && st.pieces[pid].k === 'paiZhang' && C.canSwap(st, 0, a, pid));
+          return { a: a, b: b, na: st.pieces[a].node, nb: st.pieces[b].node }; }""")
+        pg.locator('#jqBoard circle.jq-hit[data-node="%d"]' % pair['na']).click(force=True)
+        pg.wait_for_timeout(220)
+        pg.locator('#jqBoard circle.jq-hit[data-node="%d"]' % pair['nb']).click(force=True)
+        pg.wait_for_timeout(320)
+        swapped = pg.evaluate("""(pr) => { const st = window.JUNQI_APP._state();
+          return { at: st.pieces[pr.a].node, legal: window.JUNQI_APP._core.layoutValid(0,
+            st.byOwner[0].map(pid => ({ node: st.pieces[pid].node, k: st.pieces[pid].k }))) }; }""", pair)
+        results.append(('军棋页 点两枚己方子完成交换且布阵仍合法',
+                        swapped['at'] == pair['nb'] and swapped['legal'], str(swapped)))
+
+        pg.locator('#jqBtnBattle').click()
+        pg.wait_for_timeout(400)
+        results.append(('军棋页 开战后进入行棋阶段',
+                        pg.evaluate("() => window.JUNQI_APP.stats().phase") == 'play', ''))
+        mv = pg.evaluate("""() => { const A = window.JUNQI_APP, st = A._state();
+          const ms = A._core.allMoves(st, 0);
+          return { pid: ms[0].pid, from: st.pieces[ms[0].pid].node, to: ms[0].to }; }""")
+        pg.locator('#jqBoard circle.jq-hit[data-node="%d"]' % mv['from']).click(force=True)
+        pg.wait_for_timeout(260)
+        sel = pg.evaluate("() => window.JUNQI_APP.stats()")
+        marks = pg.locator('#jqBoard .jq-marks > *').count()
+        results.append(('军棋页 选中棋子后亮出合法落点',
+                        sel['selected'] == mv['pid'] and sel['marks'] > 0 and marks == sel['marks'],
+                        'marks=%d els=%d' % (sel['marks'], marks)))
+        pg.locator('#jqBoard circle.jq-hit[data-node="%d"]' % mv['to']).click(force=True)
+        pg.wait_for_timeout(1500)   # 蓝方思考延时（关卡不同 270~620ms）
+        after = pg.evaluate("() => window.JUNQI_APP.stats()")
+        results.append(('军棋页 点击落点行棋且电脑自动应手',
+                        after['plies'] == 2 and after['turn'] == 0 and after['logRows'] == 2,
+                        'plies=%s turn=%s log=%s' % (after['plies'], after['turn'], after['logRows'])))
+        results.append(('军棋页 战报已记录双方动作',
+                        pg.locator('#jqLog .jq-row').count() >= 2,
+                        pg.locator('#jqLog .jq-row').first.inner_text().replace('\n', ' ')[:34]))
+        foe = pg.evaluate("""() => { const st = window.JUNQI_APP._state(), C = window.JUNQI_APP._core;
+          const pid = st.byOwner[1].find(p => st.pieces[p].alive && !C.isKnown(st, p, 0));
+          return { node: st.pieces[pid].node, real: st.pieces[pid].k }; }""")
+        pg.locator('#jqBoard circle.jq-hit[data-node="%d"]' % foe['node']).click(force=True)
+        pg.wait_for_timeout(260)
+        hint = pg.locator('#jqHint').inner_text()
+        results.append(('军棋页 点对方棋子给出嫌疑分布而非底牌',
+                        '嫌疑' in hint and hint.count('·') >= 3, hint[:56]))
+
+        pg.keyboard.press('Escape')
+        pg.wait_for_timeout(350)
+        results.append(('军棋页 Escape 暂停（不越级回门户）',
+                        pg.evaluate("() => window.JUNQI_APP.stats().phase") == 'paused'
+                        and pg.locator('#jqOvPause.show').count() == 1, ''))
+        pg.locator('#jqBtnResume').click()
+        pg.wait_for_timeout(350)
+        results.append(('军棋页 暂停后可继续作战',
+                        pg.evaluate("() => window.JUNQI_APP.stats().phase") == 'play', ''))
+        pg.screenshot(path=os.path.join(SHOTS, 'junqi-play.png'))
+
+        # 军旗被扛 → 判负结算，不给晋级
+        pg.evaluate("() => window.JUNQI_APP._debugFinish(1)")
+        pg.wait_for_timeout(500)
+        over = pg.evaluate("() => ({ show: document.querySelectorAll('#jqOvOver.show').length,"
+                           " title: document.getElementById('jqOverTitle').textContent,"
+                           " score: document.getElementById('jqRScore').textContent,"
+                           " next: getComputedStyle(document.getElementById('jqBtnNextLevel')).display,"
+                           " streak: localStorage.getItem('junqi-streak'), phase: window.JUNQI_APP.stats().phase })")
+        results.append(('军棋页 军旗被扛立刻判负并弹结算层',
+                        over['show'] == 1 and '军旗被扛' in over['title'] and over['phase'] == 'over', str(over)))
+        results.append(('军棋页 输棋不晋级且连胜清零',
+                        over['next'] == 'none' and over['streak'] == '0', str(over)))
+
+        # 赢一局：应自动晋级并落盘
+        pg.evaluate("() => { try { localStorage.setItem('junqi-level','1'); localStorage.setItem('junqi-streak','0');"
+                    " localStorage.setItem('junqi-wins','0'); localStorage.setItem('junqi-best','0'); } catch(e){} }")
+        pg.goto(base + '/junqi/', wait_until='load')
+        pg.wait_for_timeout(1000)
+        pg.evaluate("() => window.JUNQI_APP._debugStart(1, true, 4242)")
+        pg.wait_for_timeout(300)
+        pg.evaluate("() => window.JUNQI_APP._debugFinish(0)")
+        pg.wait_for_timeout(500)
+        win = pg.evaluate("() => ({ title: document.getElementById('jqOverTitle').textContent,"
+                          " score: parseInt((document.getElementById('jqRScore').textContent||'0').replace(/[^0-9]/g,''),10),"
+                          " next: getComputedStyle(document.getElementById('jqBtnNextLevel')).display,"
+                          " best: localStorage.getItem('junqi-best'), wins: localStorage.getItem('junqi-wins'),"
+                          " lv: localStorage.getItem('junqi-level') })")
+        results.append(('军棋页 扛旗取胜并自动解锁晋级按钮',
+                        '军旗插上高地' in win['title'] and win['next'] != 'none' and win['score'] > 0, str(win)))
+        results.append(('军棋页 胜利写入最高分/胜场/关口',
+                        int(win['best'] or 0) == win['score'] and win['wins'] == '1' and win['lv'] == '2', str(win)))
+        pg.screenshot(path=os.path.join(SHOTS, 'junqi-win.png'))
+        pg.locator('#jqBtnNextLevel').click()
+        pg.wait_for_timeout(600)
+        nx = pg.evaluate("() => window.JUNQI_APP.stats()")
+        results.append(('军棋页 点晋级进入下一关', nx['level'] == 2 and nx['phase'] == 'deploy',
+                        'level=%s phase=%s' % (nx['level'], nx['phase'])))
+
+        # 门户回显（多页面门户读的是 site-src/assets/portal-home.js）
+        pg.evaluate("() => { try { localStorage.setItem('junqi-best','2580');"
+                    " localStorage.setItem('junqi-wins','7'); localStorage.setItem('junqi-level','4'); } catch(e){} }")
+        pg.goto(base + '/', wait_until='load')
+        pg.wait_for_timeout(800)
+        results.append(('门户 军棋最高分已回显', pg.locator('#ptJqBest').inner_text().strip() == '2,580',
+                        pg.locator('#ptJqBest').inner_text()))
+        results.append(('门户 军棋胜场与关口已回显',
+                        '7 胜' in pg.locator('#ptJqWins').inner_text() and '4' in pg.locator('#ptJqWins').inner_text(),
+                        pg.locator('#ptJqWins').inner_text()))
+
+        # 菜单态 Escape 回门户
+        pg.goto(base + '/junqi/', wait_until='load')
+        pg.wait_for_timeout(900)
+        pg.keyboard.press('Escape')
+        pg.wait_for_timeout(1000)
+        results.append(('军棋页 菜单态 Escape 回乐园', pg.url.rstrip('/') == base, pg.url))
         pg.close()
         b.close()
     if httpd:

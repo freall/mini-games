@@ -47,6 +47,7 @@ function page({ title, cssRel, dir, bodyAttrs, app, viewMarkup, scripts }) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>${title}</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="${up}${cssRel}">
 </head>
 <body${appAttr}${bodyAttrs}>

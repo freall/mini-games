@@ -88,6 +88,19 @@ export const GAMES = [
       'assets/manhole.js',
       'assets/boot.js'
     ]
+  },
+  {
+    id: 'junqi',
+    dir: 'junqi',
+    title: '烽火军棋 · 小游戏乐园',
+    app: 'JUNQI_APP',
+    bodyAttrs: ' data-game="junqi" data-home="../"',
+    scripts: [
+      'assets/junqi-data.js',
+      'assets/junqi-core.js',
+      'assets/junqi.js',
+      'assets/boot.js'
+    ]
   }
 ];
 
