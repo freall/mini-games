@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>烽火军棋 · 小游戏乐园</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-app="JUNQI_APP" data-game="junqi" data-home="../">
+<div class="view active" id="viewJunqi">
+
+
+<div class="jq-app">
+
+  <header class="jq-titlebar">
+    <button class="jq-home" type="button" data-back-home aria-label="返回小游戏乐园">← 乐园</button>
+    <div class="jq-brand">
+      <div class="jq-mark" aria-hidden="true">⚑</div>
+      <div>
+        <h1>烽火军棋</h1>
+        <p>LUZHANQI · 红方对战电脑</p>
+      </div>
+    </div>
+    <button class="jq-icon-btn" id="jqBtnSound" type="button" title="音效开关 (M)" aria-label="音效开关">🔊</button>
+  </header>
+
+  <div class="jq-hud">
+    <div class="jq-stat"><div class="k">战况</div><div class="v" id="jqPhase">待命</div></div>
+    <div class="jq-stat turn"><div class="k">轮到</div><div class="v" id="jqTurn">—</div></div>
+    <div class="jq-stat a0"><div class="k">红方兵力</div><div class="v" id="jqAlive0">25 子</div></div>
+    <div class="jq-stat a1"><div class="k">蓝方兵力</div><div class="v" id="jqAlive1">25 子</div></div>
+    <div class="jq-stat"><div class="k">最高分</div><div class="v" id="jqBest">0</div></div>
+    <div class="jq-stat"><div class="k">连胜</div><div class="v" id="jqStreak">—</div></div>
+  </div>
+
+  <div class="jq-levelbar">
+    <span class="lbl">关口</span>
+    <span class="name" id="jqLevelName">1 · 新兵</span>
+    <span class="jq-pips" id="jqPips" aria-label="关口进度（赢了自动晋级）"></span>
+    <span class="jq-plies">已 <b id="jqPlies">0 手</b></span>
+    <span class="jq-mode" id="jqModeTag">暗棋</span>
+  </div>
+
+  <div class="jq-main">
+    <div class="jq-boardwrap">
+      <div class="jq-board" id="jqBoard" aria-label="军棋棋盘"></div>
+
+      <div class="jq-deploy" id="jqDeploy">
+        <div class="tip">布阵阶段：点两枚红方的子<b>交换位置</b>。军旗只能在大本营，地雷只能压后三行，炸弹不进大本营行。</div>
+        <button class="jq-dbtn" id="jqBtnRelayout" type="button">🎲 重新铺开</button>
+        <button class="jq-dbtn go" id="jqBtnBattle" type="button" data-primary-action>开战 →</button>
+      </div>
+    </div>
+
+    <aside class="jq-side">
+      <div class="jq-sidehead">
+        <span>战报 · 阵亡者一律翻开</span>
+        <span>点对方棋子看嫌疑</span>
+      </div>
+      <div class="jq-log" id="jqLog" aria-live="polite" aria-label="战报"></div>
+      <div class="jq-hintbox" id="jqHint">点红方的子选中，亮起来的就是合法落点。</div>
+    </aside>
+  </div>
+
+  <div class="jq-help">
+    <span>🖱️ 点子 → 点落点</span><span>🚂 铁路直行 · 工兵可拐弯</span><span>⛺ 行营内不可被吃</span>
+    <span>🏕️ 大本营一进不出</span><span>⌨️ Esc/P 暂停 · M 静音</span>
+    <span><button type="button" data-back-home>返回小游戏乐园</button></span>
+  </div>
+
+  <div class="jq-toast" id="jqToast"></div>
+
+  <!-- 开始界面 -->
+  <div class="jq-ov show" id="jqOvStart">
+    <div class="jq-panel">
+      <div class="jq-art" aria-hidden="true">⚑</div>
+      <h2>烽火军棋</h2>
+      <div class="jq-en">LUZHANQI · VS COMPUTER</div>
+      <p class="jq-lead">你是<b>红方</b>，对面蓝方由电脑自动指挥。<br>
+        两人轮流走子，<b>扛走对方军旗就算赢</b> —— 大子吃小子，同级同归于尽。</p>
+      <div class="jq-rules">
+        <div class="jq-rule"><i>🚂</i><span><b>铁路</b>上大子可直线滑行任意格；<b>只有工兵能拐弯</b></span></div>
+        <div class="jq-rule"><i>⛺</i><span><b>行营</b>（椭圆）里的子谁也吃不了，但它自己能打出去</span></div>
+        <div class="jq-rule"><i>🏕️</i><span><b>大本营</b>只有一个入口，走进去的子<b>永远出不来</b></span></div>
+        <div class="jq-rule"><i>💣</i><span><b>炸弹</b>与任何子同归于尽；<b>地雷</b>只认工兵，别的子撞上去就是送</span></div>
+        <div class="jq-rule"><i>🃏</i><span><b>暗棋</b>：对方军衔不公开，阵亡者翻开，活着的按战果收窄嫌疑 —— 点它的子能看嫌疑</span></div>
+        <div class="jq-rule"><i>🎯</i><span>军旗被扛 / 无子可动（困毙）即判负；长期无伤亡按<b>剩余子力</b>判定</span></div>
+      </div>
+      <div class="jq-brief">
+        <span>最高分 <b id="jqStartBest">0</b></span>
+        <span>累计胜场 <b id="jqStartWins">0</b></span>
+        <span>当前关口 <b id="jqStartLevel">新兵</b></span>
+      </div>
+      <div class="jq-chooser" id="jqChooserStart"></div>
+      <button class="jq-btn" id="jqBtnStart" type="button" data-primary-action>进入布阵</button>
+      <button class="jq-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+      <div class="jq-hint">
+        布阵地点两枚己方子可交换 · 开局后<b>点子再点落点</b>行棋<br>
+        <kbd>Esc</kbd>/<kbd>P</kbd> 暂停 · <kbd>M</kbd> 音效 · <kbd>Enter</kbd> 确认 · <kbd>D</kbd> 取消选子
+      </div>
+    </div>
+  </div>
+
+  <!-- 暂停界面 -->
+  <div class="jq-ov" id="jqOvPause">
+    <div class="jq-panel">
+      <div class="jq-art" aria-hidden="true">☕</div>
+      <h2>战线暂停</h2>
+      <div class="jq-en">STAND BY</div>
+      <p class="jq-lead">电台静默，蓝方也在等你 —— 棋盘上的子一个没动。</p>
+      <button class="jq-btn" id="jqBtnResume" type="button" data-primary-action>继续作战</button>
+      <button class="jq-btn ghost" id="jqBtnQuit" type="button">收兵结算（按子力判定）</button>
+      <button class="jq-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+    </div>
+  </div>
+
+  <!-- 结算界面 -->
+  <div class="jq-ov" id="jqOvOver">
+    <div class="jq-panel">
+      <div class="jq-art" id="jqOverArt" aria-hidden="true">🚩</div>
+      <h2 id="jqOverTitle">军旗插上高地</h2>
+      <div class="jq-en" id="jqOverEn">VICTORY</div>
+      <div class="jq-why" id="jqOverWhy"></div>
+      <div class="jq-result">
+        <div class="jq-rcell"><div class="k">关口</div><div class="v" id="jqRLevel">新兵</div></div>
+        <div class="jq-rcell"><div class="k">手步</div><div class="v" id="jqRPlies">0</div></div>
+        <div class="jq-rcell"><div class="k">本局得分</div><div class="v" id="jqRScore">0</div></div>
+        <div class="jq-rcell"><div class="k">最高分</div><div class="v" id="jqRBest">0</div></div>
+        <div class="jq-rcell"><div class="k">存活 红/蓝</div><div class="v" id="jqRAlive">0 / 0</div></div>
+        <div class="jq-rcell"><div class="k">连胜</div><div class="v" id="jqRStreak">0</div></div>
+        <div class="jq-rcell"><div class="k">玩法</div><div class="v" id="jqRMode">暗棋</div></div>
+      </div>
+      <div class="jq-record" id="jqRRecord">🎉 新纪录！</div>
+      <div class="jq-chooser" id="jqChooserOver"></div>
+      <button class="jq-btn" id="jqBtnNextLevel" type="button" data-primary-action>晋级下一关</button>
+      <button class="jq-btn ghost" id="jqBtnRetry" type="button">重打本关</button>
+      <button class="jq-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+      <div class="jq-hint">提示：暗棋里"它吃了你团长还活着"就是把对方钉死在几个军衔上 —— 战报往上翻能推。</div>
+    </div>
+  </div>
+
+</div>
+</div>
+<script src="../assets/junqi-data.js"></script>
+<script src="../assets/junqi-core.js"></script>
+<script src="../assets/junqi.js"></script>
+<script src="../assets/boot.js"></script>
+</body>
+</html>

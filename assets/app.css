@@ -1370,3 +1370,261 @@ button{font-family:inherit}
   #viewManhole .mh-panel{padding:20px 16px}
   #viewManhole .mh-panel .mh-art{font-size:44px}
 }
+
+/* SECTION: junqi-styles · 烽火军棋（作用域限定 #viewJunqi，不外泄）
+   视觉基调：作训室夜战 —— 深色底、沙盘质感的棋盘、红蓝两色棋子。
+   棋盘用 SVG（viewBox 白送缩放），所以本页没有任何"量像素再算尺寸"的代码，
+   也就绕开了 README 里"高度由内容决定 → 覆盖层被裁掉"那个老坑。 */
+#viewJunqi{
+  --jq-bg:#080b12;
+  --jq-panel:#111726;
+  --jq-line:rgba(140,180,255,.16);
+  --jq-ink:#e9eefb;
+  --jq-dim:#8b96b0;
+  --jq-red:#ff5a52;
+  --jq-blue:#4d9bff;
+  --jq-amber:#ffc061;
+  --jq-green:#5cf2a8;
+  background:
+    radial-gradient(860px 520px at 50% -10%, rgba(255,150,90,.09), transparent 62%),
+    radial-gradient(720px 460px at 96% 104%, rgba(70,120,255,.10), transparent 62%),
+    linear-gradient(168deg,#0d1320 0%,var(--jq-bg) 55%,#05070c 100%);
+  color:var(--jq-ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,sans-serif;
+  min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+  padding:14px 12px 20px;
+}
+#viewJunqi .jq-app{width:100%;max-width:820px;display:flex;flex-direction:column;gap:10px}
+
+/* 顶栏 */
+#viewJunqi .jq-titlebar{display:flex;align-items:center;gap:12px}
+#viewJunqi .jq-home{
+  background:rgba(255,255,255,.05);border:1px solid var(--jq-line);color:var(--jq-ink);
+  border-radius:10px;padding:8px 13px;font-size:13px;cursor:pointer;transition:.18s;white-space:nowrap;
+}
+#viewJunqi .jq-home:hover{background:rgba(255,255,255,.11);border-color:rgba(140,180,255,.34)}
+#viewJunqi .jq-brand{display:flex;align-items:center;gap:11px;flex:1;min-width:0}
+#viewJunqi .jq-mark{
+  width:44px;height:44px;border-radius:13px;flex:0 0 auto;
+  background:linear-gradient(150deg,#3a2a1a,#171a26);
+  border:1px solid rgba(255,192,97,.30);
+  display:flex;align-items:center;justify-content:center;font-size:23px;
+}
+#viewJunqi .jq-brand h1{font-size:16px;font-weight:800;letter-spacing:.02em}
+#viewJunqi .jq-brand p{font-size:10px;color:var(--jq-dim);letter-spacing:.16em;margin-top:2px}
+#viewJunqi .jq-icon-btn{
+  width:40px;height:40px;border-radius:11px;flex:0 0 auto;
+  background:rgba(255,255,255,.05);border:1px solid var(--jq-line);
+  color:var(--jq-ink);font-size:17px;cursor:pointer;transition:.18s;
+}
+#viewJunqi .jq-icon-btn:hover{background:rgba(255,255,255,.11)}
+
+/* HUD */
+#viewJunqi .jq-hud{
+  display:grid;grid-template-columns:repeat(6,1fr);gap:7px;
+  background:rgba(255,255,255,.035);border:1px solid var(--jq-line);border-radius:13px;padding:9px 10px;
+}
+#viewJunqi .jq-stat .k{font-size:10px;color:var(--jq-dim);letter-spacing:.06em}
+#viewJunqi .jq-stat .v{font-size:15px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+#viewJunqi .jq-stat.turn .v{color:var(--jq-amber)}
+#viewJunqi .jq-stat.a0 .v{color:var(--jq-red)}
+#viewJunqi .jq-stat.a1 .v{color:var(--jq-blue)}
+
+/* 关口条 */
+#viewJunqi .jq-levelbar{
+  display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--jq-dim);
+  background:rgba(255,255,255,.03);border:1px solid var(--jq-line);border-radius:11px;padding:7px 11px;
+}
+#viewJunqi .jq-levelbar .lbl{letter-spacing:.1em}
+#viewJunqi .jq-levelbar .name{color:var(--jq-amber);font-weight:800;font-size:12.5px;white-space:nowrap}
+#viewJunqi .jq-pips{display:flex;gap:4px;flex:1;min-width:0;flex-wrap:wrap}
+#viewJunqi .jq-pip{
+  width:15px;height:15px;border-radius:5px;padding:0;cursor:pointer;
+  background:rgba(255,255,255,.06);border:1px solid var(--jq-line);transition:.16s;
+}
+#viewJunqi .jq-pip.on{background:rgba(255,192,97,.22);border-color:rgba(255,192,97,.42)}
+#viewJunqi .jq-pip.cur{background:var(--jq-amber);border-color:#fff2cf;box-shadow:0 0 10px rgba(255,192,97,.5)}
+#viewJunqi .jq-pip:not(.on):not(.cur){cursor:not-allowed;opacity:.5}
+#viewJunqi .jq-mode{color:var(--jq-green);white-space:nowrap}
+#viewJunqi .jq-plies{white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* 主体：棋盘 + 战报 */
+#viewJunqi .jq-main{display:flex;gap:14px;align-items:flex-start;justify-content:center}
+#viewJunqi .jq-boardwrap{flex:0 0 auto;display:flex;flex-direction:column;gap:9px;width:min(340px,52vw)}
+#viewJunqi .jq-board{
+  background:linear-gradient(168deg,#131b2b,#0a0f19);
+  border:1px solid rgba(140,180,255,.20);border-radius:16px;
+  box-shadow:0 22px 54px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.03);
+  padding:6px 4px;
+}
+#viewJunqi .jq-svg{width:100%;height:auto;display:block;overflow:visible}
+#viewJunqi .jq-road{stroke:rgba(150,180,230,.30);stroke-width:2}
+#viewJunqi .jq-rail{stroke:#54688c;stroke-width:8;stroke-linecap:round}
+#viewJunqi .jq-tie{stroke:#0a0f19;stroke-width:3;stroke-dasharray:2 6}
+#viewJunqi .jq-front{stroke:rgba(255,192,97,.30);stroke-width:3;stroke-dasharray:11 9}
+#viewJunqi .jq-station{fill:#161f30;stroke:rgba(150,180,230,.34);stroke-width:1.6}
+#viewJunqi .jq-camp{fill:rgba(92,242,168,.075);stroke:rgba(92,242,168,.42);stroke-width:1.8}
+#viewJunqi .jq-hq{fill:rgba(255,192,97,.10);stroke:rgba(255,192,97,.55);stroke-width:1.8}
+#viewJunqi .jq-nlabel{fill:rgba(200,215,240,.42);font-size:13px;letter-spacing:.06em;pointer-events:none}
+#viewJunqi .jq-mark-dot{fill:rgba(92,242,168,.65)}
+#viewJunqi .jq-mark-atk{fill:none;stroke:var(--jq-red);stroke-width:3;stroke-dasharray:7 5}
+#viewJunqi .jq-hit{fill:rgba(0,0,0,0);stroke:none;cursor:pointer}
+#viewJunqi .jq-p{transition:transform .24s ease}
+#viewJunqi .jq-p .jq-disc{stroke-width:2}
+#viewJunqi .jq-p .jq-ring{fill:none;stroke:transparent;stroke-width:3}
+#viewJunqi .jq-p .jq-nm{font-size:19px;font-weight:800;letter-spacing:-.02em;pointer-events:none}
+#viewJunqi .jq-s0 .jq-disc{fill:#8f201a;stroke:var(--jq-red)}
+#viewJunqi .jq-s0 .jq-nm{fill:#ffe6e2}
+#viewJunqi .jq-s1 .jq-disc{fill:#123a72;stroke:var(--jq-blue)}
+#viewJunqi .jq-s1 .jq-nm{fill:#e2eeff}
+#viewJunqi .jq-face-down .jq-disc{fill:#232a3d;stroke:#55688a}
+#viewJunqi .jq-face-down .jq-nm{fill:#aeb9d4}
+#viewJunqi .jq-sel .jq-ring{stroke:var(--jq-amber);filter:drop-shadow(0 0 6px rgba(255,192,97,.75))}
+#viewJunqi .jq-turned .jq-disc{stroke-dasharray:4 3}
+
+/* 布阵条 */
+#viewJunqi .jq-deploy{
+  display:none;gap:8px;align-items:center;flex-wrap:wrap;
+  background:rgba(255,192,97,.08);border:1px solid rgba(255,192,97,.30);border-radius:12px;padding:8px 10px;
+}
+#viewJunqi .jq-deploy.show{display:flex}
+#viewJunqi .jq-deploy .tip{flex:1 1 100%;font-size:11px;color:#f0dcb4;line-height:1.5}
+#viewJunqi .jq-dbtn{
+  background:rgba(255,255,255,.07);border:1px solid var(--jq-line);color:var(--jq-ink);
+  border-radius:9px;padding:7px 12px;font-size:12px;cursor:pointer;transition:.16s;font-weight:700;
+}
+#viewJunqi .jq-dbtn:hover{background:rgba(255,255,255,.13)}
+#viewJunqi .jq-dbtn.go{background:linear-gradient(135deg,#ffb64d,#ff7a45);color:#26120a;border-color:transparent}
+
+/* 侧栏：战报 */
+#viewJunqi .jq-side{
+  flex:1 1 250px;min-width:0;max-width:340px;display:flex;flex-direction:column;gap:8px;
+}
+#viewJunqi .jq-sidehead{
+  font-size:10.5px;color:var(--jq-dim);letter-spacing:.12em;
+  display:flex;justify-content:space-between;align-items:center;
+}
+#viewJunqi .jq-log{
+  height:min(560px,68vh);overflow-y:auto;
+  background:rgba(255,255,255,.03);border:1px solid var(--jq-line);border-radius:12px;padding:8px;
+  display:flex;flex-direction:column;gap:5px;
+}
+#viewJunqi .jq-row{
+  display:flex;gap:7px;font-size:11.5px;line-height:1.45;
+  padding:5px 7px;border-radius:8px;background:rgba(255,255,255,.035);
+}
+#viewJunqi .jq-row i{font-style:normal;color:var(--jq-dim);font-variant-numeric:tabular-nums;flex:0 0 auto}
+#viewJunqi .jq-row.me{border-left:2px solid var(--jq-red)}
+#viewJunqi .jq-row.foe{border-left:2px solid var(--jq-blue)}
+#viewJunqi .jq-row.kboom{background:rgba(255,120,90,.12)}
+#viewJunqi .jq-row.kflag{background:rgba(255,192,97,.18);font-weight:800}
+#viewJunqi .jq-row.kdig{background:rgba(92,242,168,.10)}
+#viewJunqi .jq-hintbox{
+  min-height:52px;font-size:11.5px;line-height:1.55;color:#dfe7f7;
+  background:rgba(77,155,255,.07);border:1px solid rgba(77,155,255,.22);border-radius:11px;padding:9px 11px;
+}
+#viewJunqi .jq-toast{
+  position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);
+  background:rgba(16,22,36,.95);border:1px solid rgba(255,192,97,.42);color:#ffe6bf;
+  border-radius:11px;padding:9px 15px;font-size:12.5px;font-weight:700;
+  opacity:0;pointer-events:none;transition:.22s;z-index:80;
+}
+#viewJunqi .jq-toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* 底部说明 */
+#viewJunqi .jq-help{
+  display:flex;flex-wrap:wrap;gap:8px 15px;justify-content:center;align-items:center;
+  font-size:11px;color:var(--jq-dim);
+}
+#viewJunqi .jq-help button{
+  background:rgba(255,255,255,.05);border:1px solid var(--jq-line);color:var(--jq-ink);
+  border-radius:8px;padding:5px 11px;font-size:11px;cursor:pointer;transition:.18s;
+}
+#viewJunqi .jq-help button:hover{background:rgba(255,255,255,.11)}
+
+/* 覆盖层：一律 position:fixed 铺满视口（见 README 坑 2 / 坑 6） */
+#viewJunqi .jq-ov{
+  position:fixed;inset:0;z-index:60;display:none;
+  align-items:center;justify-content:center;padding:18px;
+  background:rgba(4,6,11,.82);backdrop-filter:blur(9px);
+}
+#viewJunqi .jq-ov.show{display:flex}
+#viewJunqi .jq-panel{
+  width:100%;max-width:470px;max-height:92vh;overflow-y:auto;
+  background:linear-gradient(168deg,#162034,#0e1626 62%,#0a0f1c);
+  border:1px solid rgba(140,180,255,.24);border-radius:20px;
+  padding:24px 22px;text-align:center;
+  box-shadow:0 26px 70px rgba(0,0,0,.66);
+}
+#viewJunqi .jq-art{font-size:52px;line-height:1.1}
+#viewJunqi .jq-panel h2{font-size:21px;font-weight:900;margin-top:8px}
+#viewJunqi .jq-en{font-size:10px;letter-spacing:.24em;color:var(--jq-dim);margin-top:3px}
+#viewJunqi .jq-lead{font-size:12.5px;line-height:1.75;color:#cfd9ee;margin:13px 0 4px}
+#viewJunqi .jq-lead b{color:#fff}
+#viewJunqi .jq-rules{
+  margin:13px 0 4px;padding:11px;background:rgba(255,255,255,.035);
+  border:1px solid var(--jq-line);border-radius:12px;text-align:left;
+  display:flex;flex-direction:column;gap:6px;
+}
+#viewJunqi .jq-rule{display:flex;gap:8px;font-size:11.5px;line-height:1.55;color:#cbd6ea}
+#viewJunqi .jq-rule i{font-style:normal;flex:0 0 auto;font-size:14px}
+#viewJunqi .jq-rule b{color:#fff}
+#viewJunqi .jq-brief{
+  display:flex;justify-content:center;gap:16px;font-size:11px;color:var(--jq-dim);margin:10px 0 2px;
+}
+#viewJunqi .jq-brief b{color:var(--jq-amber);font-size:13px;font-variant-numeric:tabular-nums}
+#viewJunqi .jq-chooser{margin:14px 0 4px;text-align:left}
+#viewJunqi .jq-chooser-title{font-size:10.5px;color:var(--jq-dim);letter-spacing:.1em;margin-bottom:7px}
+#viewJunqi .jq-chooser-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+#viewJunqi .jq-chip{
+  background:rgba(255,255,255,.05);border:1px solid var(--jq-line);color:var(--jq-ink);
+  border-radius:9px;padding:6px 11px;font-size:11.5px;cursor:pointer;transition:.16s;font-weight:700;
+}
+#viewJunqi .jq-chip:hover{background:rgba(255,255,255,.11)}
+#viewJunqi .jq-chip.sel{border-color:rgba(255,192,97,.75);background:rgba(255,192,97,.14);color:#ffe4bb}
+#viewJunqi .jq-chip.lock{opacity:.42;cursor:not-allowed}
+#viewJunqi .jq-chip.mode{border-color:rgba(92,242,168,.34)}
+#viewJunqi .jq-chip.mode.sel{border-color:rgba(92,242,168,.8);background:rgba(92,242,168,.14);color:#c9ffe4}
+#viewJunqi .jq-chooser-note{font-size:10.5px;color:var(--jq-dim)}
+#viewJunqi .jq-btn{
+  display:block;width:100%;margin-top:9px;padding:13px;border:0;border-radius:12px;
+  font-size:15px;font-weight:800;cursor:pointer;transition:.18s;
+  background:linear-gradient(135deg,#ffb64d,#ff5a52);color:#2a0f0a;
+  box-shadow:0 10px 26px rgba(255,120,90,.32);
+}
+#viewJunqi .jq-btn:hover{filter:brightness(1.07);transform:translateY(-1px)}
+#viewJunqi .jq-btn.ghost{
+  background:rgba(255,255,255,.05);color:var(--jq-ink);
+  border:1px solid var(--jq-line);box-shadow:none;font-weight:600;
+}
+#viewJunqi .jq-btn.ghost:hover{background:rgba(255,255,255,.11)}
+#viewJunqi .jq-hint{font-size:11px;color:var(--jq-dim);line-height:1.75;margin-top:14px}
+#viewJunqi .jq-hint kbd{
+  background:rgba(255,255,255,.09);border:1px solid var(--jq-line);
+  border-radius:5px;padding:1px 5px;font-size:10.5px;font-family:inherit;
+}
+#viewJunqi .jq-result{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 6px}
+#viewJunqi .jq-rcell{background:rgba(255,255,255,.04);border:1px solid var(--jq-line);border-radius:10px;padding:9px 7px}
+#viewJunqi .jq-rcell .k{font-size:10px;color:var(--jq-dim);margin-bottom:4px}
+#viewJunqi .jq-rcell .v{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}
+#viewJunqi .jq-record{
+  display:none;font-size:12.5px;font-weight:800;color:var(--jq-amber);margin:12px 0 2px;
+}
+#viewJunqi .jq-record.show{display:block}
+#viewJunqi .jq-why{
+  font-size:12px;line-height:1.65;color:#dfe7f7;
+  background:rgba(255,255,255,.05);border:1px solid var(--jq-line);
+  border-radius:9px;padding:9px 11px;margin:12px 0 2px;text-align:left;
+}
+#viewJunqi .jq-why.good{border-color:rgba(92,242,168,.4);background:rgba(92,242,168,.08);color:#c9ffe4}
+#viewJunqi .jq-why.bad{border-color:rgba(255,90,82,.4);background:rgba(255,90,82,.08);color:#ffd8d4}
+
+@media (max-width:720px){
+  #viewJunqi .jq-main{flex-direction:column;align-items:center}
+  #viewJunqi .jq-boardwrap{width:min(300px,86vw)}
+  #viewJunqi .jq-side{max-width:360px;width:100%}
+  #viewJunqi .jq-log{height:230px}
+  #viewJunqi .jq-hud{grid-template-columns:repeat(3,1fr)}
+  #viewJunqi .jq-panel{padding:20px 16px}
+  #viewJunqi .jq-art{font-size:44px}
+}

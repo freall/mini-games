@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>小游戏乐园 · 迷你游戏合集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body data-page="portal">
@@ -147,10 +148,41 @@
         </div>
       </div>
 
+      <!-- 卡片：烽火军棋 -->
+      <div class="pt-card" data-goto="junqi" role="button" tabindex="0"
+           style="--art-1:#ff6a4d;--art-2:#7d1410;--card-glow:rgba(255,140,90,.26)"
+           aria-label="进入游戏：烽火军棋">
+        <div class="pt-top">
+          <div class="pt-art" aria-hidden="true">⚑</div>
+          <div class="pt-name">
+            <h2>烽火军棋</h2>
+            <div class="pt-sub">LUZHANQI · VS 电脑</div>
+          </div>
+        </div>
+        <p class="pt-desc">红方是你，蓝方是电脑自动指挥。轮流走子，扛走对方军旗就算赢 —— 铁路上大子直行到底、工兵能拐弯，行营里的子打不到，大本营进去就出不来。暗棋模式对方军衔不公开，靠战报推。</p>
+        <div class="pt-tags">
+          <span class="pt-tag">回合制兵棋</span>
+          <span class="pt-tag">暗棋推演</span>
+          <span class="pt-tag">铁路机动</span>
+          <span class="pt-tag">9 关晋级</span>
+        </div>
+        <div class="pt-foot">
+          <div class="pt-stat">
+            <div class="k">最高分</div>
+            <div class="v" id="ptJqBest">—</div>
+          </div>
+          <div class="pt-stat">
+            <div class="k">胜场 / 关口</div>
+            <div class="v dim" id="ptJqWins">未出征</div>
+          </div>
+          <div class="pt-play" data-primary-action>开始游戏 <span aria-hidden="true">→</span></div>
+        </div>
+      </div>
+
     </div>
 
     <p class="pt-note">
-      四款游戏都在浏览器本地运行，最高分、关卡进度与掌握度保存在当前浏览器。<br>
+      五款游戏都在浏览器本地运行，最高分、关卡进度与掌握度保存在当前浏览器。<br>
       桌面端支持鼠标与键盘，移动端支持触控操作。
     </p>
 
