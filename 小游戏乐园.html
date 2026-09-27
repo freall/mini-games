@@ -2241,16 +2241,11 @@ button{font-family:inherit}
 
 /* 主体：棋盘 + 战报（棋盘按视口高度定高 → 一整局不用滚动） */
 #viewJunqi .jq-main{display:flex;gap:14px;align-items:stretch;justify-content:center}
-#viewJunqi .jq-boardwrap{flex:0 0 auto;display:flex;flex-direction:column;gap:9px}
+#viewJunqi .jq-boardwrap{flex:0 0 auto;display:flex;flex-direction:column;gap:8px}
+/* 桌面质感（呢绒 + 木框 + 铜角码）全画在 SVG 里了，容器只负责投影 */
 #viewJunqi .jq-board{
   position:relative;flex:1 1 auto;display:flex;align-items:flex-start;justify-content:center;
-  background:
-    radial-gradient(120% 62% at 50% 0%,rgba(77,155,255,.13),transparent 55%),
-    radial-gradient(120% 62% at 50% 100%,rgba(255,95,86,.13),transparent 55%),
-    linear-gradient(168deg,#182233,#080c15 70%);
-  border:1px solid rgba(140,180,255,.22);border-radius:18px;
-  box-shadow:0 26px 60px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 0 70px rgba(0,0,0,.55);
-  padding:8px 6px;
+  padding:0;filter:drop-shadow(0 26px 46px rgba(0,0,0,.62));
 }
 /* 棋盘按"视口高度 − 上方三条 − 阵地题名"定高 → 一整局不用滚动。
    行距换算下来每格约 55px：棋子直径 ~48px、字号 ~19px，读得清也不会缩成点。 */
@@ -2258,9 +2253,11 @@ button{font-family:inherit}
   display:block;height:min(calc(100vh - 348px),860px);min-height:380px;
   width:auto;max-width:100%;overflow:visible;
 }
-/* 沙盘外框与四角刻度 */
-#viewJunqi .jq-frame rect{fill:none;stroke:rgba(255,196,92,.2);stroke-width:1.6}
-#viewJunqi .jq-frame path{fill:none;stroke:rgba(255,196,92,.55);stroke-width:2.6;stroke-linecap:round}
+/* 木框 + 内沿 + 铜角码 */
+#viewJunqi .jq-wood{fill:none;stroke:url(#jqWood);stroke-width:11}
+#viewJunqi .jq-inset{fill:none;stroke:rgba(255,225,170,.16);stroke-width:1.4}
+#viewJunqi .jq-brass{fill:none;stroke:#c9a15c;stroke-width:3.4;stroke-linecap:round;opacity:.8}
+#viewJunqi .jq-frame rect{paint-order:stroke fill}
 /* 阵地题名：兼作"谁是谁"的图例（画进 viewBox 会压住第一排棋子） */
 #viewJunqi .jq-terrace{
   display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.18em;
@@ -2276,60 +2273,68 @@ button{font-family:inherit}
   10%,90%{transform:translate(-1px,0)}30%,70%{transform:translate(3px,-1px)}50%{transform:translate(-4px,1px)}
 }
 
-/* 线：公路细、铁路"钢轨 + 枕木 + 高光"三线叠出金属感；中线是会动的火线 */
-#viewJunqi .jq-road{stroke:rgba(150,180,230,.34);stroke-width:2.2}
-#viewJunqi .jq-rail{stroke:#5b7096;stroke-width:9;stroke-linecap:round}
-#viewJunqi .jq-tie{stroke:#0a0f19;stroke-width:9;stroke-dasharray:2 7}
-#viewJunqi .jq-rail-hi{stroke:rgba(206,226,255,.5);stroke-width:1.6;stroke-linecap:round}
+/* 线：公路是刻在呢绒上的细槽；铁路画全 —— 道砟带 + 枕木 + 两条钢轨 */
+#viewJunqi .jq-road{stroke:rgba(228,236,255,.30);stroke-width:2.4;stroke-linecap:round}
+#viewJunqi .jq-bed{stroke:rgba(214,196,158,.20);stroke-width:13;stroke-linecap:round}
+#viewJunqi .jq-tie{stroke:rgba(58,38,20,.85);stroke-width:12;stroke-dasharray:3 8}
+#viewJunqi .jq-steel{stroke:#cfd8e6;stroke-width:2.6;stroke-linecap:round;opacity:.92}
 #viewJunqi .jq-front{
-  stroke:rgba(255,196,92,.5);stroke-width:2.4;stroke-dasharray:14 10;
-  filter:drop-shadow(0 0 6px rgba(255,196,92,.5));animation:jqFront 1.6s linear infinite;
+  stroke:rgba(255,196,92,.55);stroke-width:2.6;stroke-dasharray:15 11;
+  filter:drop-shadow(0 0 7px rgba(255,196,92,.55));animation:jqFront 1.6s linear infinite;
 }
-@keyframes jqFront{to{stroke-dashoffset:-24}}
+@keyframes jqFront{to{stroke-dashoffset:-26}}
 
-/* 点：兵站 / 行营（安全岛发光）/ 大本营（琥珀门框，告急时闪红） */
-#viewJunqi .jq-station{fill:#151f31;stroke:rgba(150,180,230,.4);stroke-width:1.6}
-#viewJunqi .jq-camp{
-  fill:rgba(92,242,168,.09);stroke:rgba(92,242,168,.5);stroke-width:2;
-  filter:drop-shadow(0 0 7px rgba(92,242,168,.28));
-}
-#viewJunqi .jq-hq{fill:rgba(255,196,92,.1);stroke:rgba(255,196,92,.62);stroke-width:2.2;
-  filter:drop-shadow(0 0 8px rgba(255,196,92,.25))}
+/* 点：兵站是钻出来的孔，行营是缝了边的垫子，大本营是铜角平台 */
+#viewJunqi .jq-hole-hi{fill:none;stroke:rgba(255,244,220,.13);stroke-width:2.4}
+#viewJunqi .jq-station{fill:rgba(4,14,10,.34);stroke:rgba(226,236,255,.30);stroke-width:1.8}
+#viewJunqi .jq-camp{fill:rgba(120,220,170,.10);stroke:rgba(150,240,195,.42);stroke-width:2.2}
+#viewJunqi .jq-stitch{fill:none;stroke:rgba(150,240,195,.4);stroke-width:1.2;stroke-dasharray:4 4}
+#viewJunqi .jq-hq{fill:rgba(255,196,92,.09);stroke:rgba(226,180,110,.62);stroke-width:2.4}
+#viewJunqi .jq-hq-in{fill:none;stroke:rgba(255,225,170,.22);stroke-width:1.2;stroke-dasharray:5 4}
 #viewJunqi .jq-hq.danger{stroke:var(--jq-red);animation:jqHqDanger .7s ease-in-out infinite}
 @keyframes jqHqDanger{
   0%,100%{filter:drop-shadow(0 0 4px rgba(255,95,86,.3))}
   50%{filter:drop-shadow(0 0 18px rgba(255,95,86,.9))}
 }
-#viewJunqi .jq-nlabel{fill:rgba(205,220,245,.42);font-size:12px;letter-spacing:.08em;pointer-events:none}
+#viewJunqi .jq-nlabel{fill:rgba(232,240,255,.34);font-size:13px;letter-spacing:.1em;pointer-events:none;font-weight:700}
 
 /* 落点：可走点呼吸绿点，可吃点旋转红环 */
-#viewJunqi .jq-mark-dot{fill:rgba(92,242,168,.7);animation:jqDot .95s ease-in-out infinite}
+#viewJunqi .jq-mark-dot{fill:rgba(120,245,190,.85);filter:drop-shadow(0 0 6px rgba(92,242,168,.7));animation:jqDot .95s ease-in-out infinite}
 @keyframes jqDot{0%,100%{opacity:.45}50%{opacity:1}}
 #viewJunqi .jq-mark-atk{
-  fill:none;stroke:var(--jq-red);stroke-width:3.4;stroke-dasharray:8 6;
+  fill:none;stroke:var(--jq-red);stroke-width:3.6;stroke-dasharray:9 7;
   transform-box:fill-box;transform-origin:center;
-  animation:jqSpin 2.4s linear infinite;filter:drop-shadow(0 0 6px rgba(255,95,86,.6));
+  animation:jqSpin 2.4s linear infinite;filter:drop-shadow(0 0 7px rgba(255,95,86,.65));
 }
 @keyframes jqSpin{to{transform:rotate(360deg)}}
 
-/* 棋子：有厚度的将章（渐变面 + 内圈 + 投影 + 描边字） */
-#viewJunqi .jq-p{transition:transform .26s cubic-bezier(.3,1.4,.5,1)}
-#viewJunqi .jq-p .jq-disc{stroke-width:2}
-#viewJunqi .jq-p .jq-inner{fill:none;stroke:rgba(255,255,255,.24);stroke-width:1.2}
-#viewJunqi .jq-p .jq-ring{fill:none;stroke:transparent;stroke-width:3.4}
+/* 棋子：拟物将章 —— 投影 / 侧面厚度 / 象牙盘面 / 阵营色沿圈 / 内刻线 / 高光 / 刻字 */
+#viewJunqi .jq-p{transition:transform .26s cubic-bezier(.3,1.4,.5,1);filter:url(#jqSh)}
+#viewJunqi .jq-shadow{fill:rgba(0,0,0,.34)}
+#viewJunqi .jq-edge{fill:#8a6f4a}
+#viewJunqi .jq-face-down .jq-edge{fill:#0e2419}
+#viewJunqi .jq-disc{stroke:rgba(0,0,0,.28);stroke-width:1.2}
+#viewJunqi .jq-rim{fill:none;stroke-width:3.2}
+#viewJunqi .jq-s0 .jq-rim{stroke:#b8342a}
+#viewJunqi .jq-s1 .jq-rim{stroke:#2f6cb0}
+#viewJunqi .jq-face-down .jq-rim{stroke:#1e4a34}
+#viewJunqi .jq-inner{fill:none;stroke:rgba(96,66,30,.3);stroke-width:1.3}
+#viewJunqi .jq-spec{fill:rgba(255,255,255,.34)}
+#viewJunqi .jq-face-down .jq-spec{fill:rgba(255,255,255,.07)}
+#viewJunqi .jq-ring{fill:none;stroke:transparent;stroke-width:3.6}
 #viewJunqi .jq-p .jq-nm{
-  font-size:20px;font-weight:900;letter-spacing:-.06em;pointer-events:none;
-  paint-order:stroke fill;stroke:rgba(0,0,0,.55);stroke-width:2.8px;
+  font-size:26px;font-weight:900;letter-spacing:-.1em;pointer-events:none;
+  paint-order:stroke fill;stroke:rgba(255,255,255,.5);stroke-width:1.1px;
 }
-#viewJunqi .jq-s0 .jq-nm{fill:#fff0ec}
-#viewJunqi .jq-s1 .jq-nm{fill:#eaf4ff}
-/* 背面：内圈改虚线 + 星徽，跟"翻开的大子"一眼分得开 */
-#viewJunqi .jq-face-down .jq-inner{stroke:rgba(255,255,255,.3);stroke-dasharray:4 4}
-#viewJunqi .jq-face-down .jq-nm{fill:rgba(236,244,255,.9);font-size:23px}
+#viewJunqi .jq-s0 .jq-nm{fill:#a8261d}
+#viewJunqi .jq-s1 .jq-nm{fill:#14477f}
+/* 背面：素面 + 缝线 + 星徽，与"空兵站 / 已翻开"三者一眼分得开 */
+#viewJunqi .jq-face-down .jq-inner{stroke:rgba(190,235,210,.34);stroke-dasharray:5 5}
+#viewJunqi .jq-face-down .jq-nm{fill:rgba(214,240,228,.82);font-size:30px;letter-spacing:0;stroke:none}
 #viewJunqi .jq-sel .jq-ring{stroke:var(--jq-amber);animation:jqSelPulse 1.15s ease-in-out infinite}
 @keyframes jqSelPulse{
   0%,100%{stroke-width:3;opacity:.6}
-  50%{stroke-width:5.6;opacity:1;filter:drop-shadow(0 0 14px rgba(255,196,92,.95))}
+  50%{stroke-width:6;opacity:1;filter:drop-shadow(0 0 16px rgba(255,196,92,.95))}
 }
 #viewJunqi .jq-born{animation:jqBorn .34s cubic-bezier(.2,1.5,.4,1)}
 @keyframes jqBorn{from{opacity:0}20%{opacity:1}}
@@ -2341,9 +2346,9 @@ button{font-family:inherit}
 #viewJunqi .jq-burst.win{stroke:var(--jq-green)}
 #viewJunqi .jq-burst.bad{stroke:var(--jq-red)}
 #viewJunqi .jq-burst.boom{stroke:var(--jq-amber)}
-@keyframes jqBurst{from{r:12;opacity:.95;stroke-width:7}to{r:48;opacity:0;stroke-width:1}}
+@keyframes jqBurst{from{r:16;opacity:.95;stroke-width:8}to{r:66;opacity:0;stroke-width:1}}
 #viewJunqi .jq-float{
-  font-size:21px;font-weight:900;paint-order:stroke fill;stroke:rgba(0,0,0,.7);stroke-width:3.6px;
+  font-size:26px;font-weight:900;paint-order:stroke fill;stroke:rgba(0,0,0,.7);stroke-width:3.6px;
   animation:jqFloat 1.15s cubic-bezier(.2,.8,.3,1) forwards;
 }
 @keyframes jqFloat{
@@ -2358,9 +2363,9 @@ button{font-family:inherit}
    动效若覆盖 transform，尸体会瞬移到棋盘原点（第一版就踩过）。 */
 #viewJunqi .jq-ghost{animation:jqGhostFade .58s ease-out forwards}
 #viewJunqi .jq-ghost .jq-disc{animation:jqGhostPop .58s ease-out forwards}
-#viewJunqi .jq-ghost .jq-nm{font-size:20px;font-weight:900;paint-order:stroke fill;stroke:rgba(0,0,0,.6);stroke-width:2.8px}
+#viewJunqi .jq-ghost .jq-nm{font-size:26px;font-weight:900;paint-order:stroke fill;stroke:rgba(0,0,0,.6);stroke-width:2.8px}
 @keyframes jqGhostFade{0%{opacity:1}30%{opacity:1}100%{opacity:0}}
-@keyframes jqGhostPop{0%{r:31}30%{r:39}100%{r:24}}
+@keyframes jqGhostPop{0%{r:38}30%{r:46}100%{r:30}}
 #viewJunqi .jq-trail{fill:none;stroke:rgba(143,208,255,.6);stroke-width:2.6;stroke-dasharray:7 7;
   animation:jqTrailFade 1.6s ease-out forwards}
 #viewJunqi .jq-trail-dot{fill:none;stroke:rgba(143,208,255,.5);stroke-width:2;
@@ -2562,6 +2567,27 @@ button{font-family:inherit}
   border-color:rgba(255,95,86,.45);color:#ffd8d4;
   background:linear-gradient(135deg,rgba(255,95,86,.14),rgba(255,95,86,.04));
 }
+
+/* ── 宽屏：棋盘横过来摆（蓝方在左、红方在右）──────────────
+   竖着摆时 5 列 × 12 行是根瘦长的柱子；横过来比例正好反过来，
+   1160×600 的 viewBox 铺满电脑屏幕，棋子也能放大到看得清的字。 */
+#viewJunqi.jq-land .jq-app{max-width:1560px}
+#viewJunqi.jq-land .jq-main{gap:10px}
+#viewJunqi.jq-land .jq-boardwrap{flex:1 1 auto;min-width:0;flex-direction:row;align-items:center;gap:10px}
+#viewJunqi.jq-land .jq-board{flex:1 1 auto;min-width:0}
+#viewJunqi.jq-land .jq-svg{
+  width:min(100%,calc((100vh - 300px) * 1.933));height:auto;min-height:0;margin:0 auto;
+}
+#viewJunqi.jq-land .jq-terrace{
+  flex:0 0 auto;writing-mode:vertical-rl;padding:10px 5px;font-size:9.5px;letter-spacing:.22em;
+}
+#viewJunqi.jq-land .jq-terrace.foe{background:linear-gradient(180deg,rgba(77,155,255,.18),transparent)}
+#viewJunqi.jq-land .jq-terrace.own{
+  background:linear-gradient(0deg,rgba(255,95,86,.18),transparent);transform:rotate(180deg);
+}
+#viewJunqi.jq-land .jq-side{flex:0 0 300px;max-width:300px}
+#viewJunqi.jq-land .jq-log{max-height:none;flex:1 1 auto}
+#viewJunqi.jq-land .jq-legend{flex:0 0 auto}
 
 @media (max-width:760px){
   #viewJunqi .jq-main{flex-direction:column;align-items:center}

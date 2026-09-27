@@ -666,14 +666,34 @@ def main():
         geo = pg.evaluate("""() => ({
           hits: document.querySelectorAll('#jqBoard circle.jq-hit').length,
           pieces: document.querySelectorAll('#jqBoard .jq-p').length,
-          rails: document.querySelectorAll('#jqBoard .jq-rail').length,
+          beds: document.querySelectorAll('#jqBoard .jq-bed').length,
+          steel: document.querySelectorAll('#jqBoard .jq-steel').length,
           camps: document.querySelectorAll('#jqBoard .jq-camp').length,
           hq: document.querySelectorAll('#jqBoard .jq-hq').length,
           down: document.querySelectorAll('#jqBoard .jq-face-down').length })""")
-        results.append(('军棋页 棋盘几何齐全（60 点 / 50 子 / 37 铁路 / 10 行营 / 4 大本营）',
-                        [geo['hits'], geo['pieces'], geo['rails'], geo['camps'], geo['hq']] == [60, 50, 37, 10, 4],
+        # 铁路拟物化后一条铁路 = 道砟带 + 枕木 + 两条钢轨，所以 37 条铁路对应 74 根钢轨
+        results.append(('军棋页 棋盘几何齐全（60 点 / 50 子 / 37 铁路 / 74 钢轨 / 10 行营 / 4 大本营）',
+                        [geo['hits'], geo['pieces'], geo['beds'], geo['steel'],
+                         geo['camps'], geo['hq']] == [60, 50, 37, 74, 10, 4],
                         str(geo)))
         results.append(('军棋页 暗棋默认藏住蓝方 25 子的军衔', geo['down'] == 25, 'face-down=%d' % geo['down']))
+        # 朝向：宽屏横放（蓝左红右）、窄屏竖放（红下蓝上）—— 只换屏幕坐标，拓扑不变
+        shape = pg.evaluate("""() => { const v = document.getElementById('viewJunqi');
+          const s = document.querySelector('#jqBoard .jq-svg').getBoundingClientRect();
+          return { land: v.classList.contains('jq-land'), w: Math.round(s.width), h: Math.round(s.height) }; }""")
+        results.append(('军棋页 宽屏自动横放棋盘（不再是瘦长竖条）',
+                        shape['land'] is True and shape['w'] > shape['h'] * 1.5, str(shape)))
+        pg.set_viewport_size({'width': 760, 'height': 900})
+        pg.wait_for_timeout(700)
+        shape2 = pg.evaluate("""() => { const v = document.getElementById('viewJunqi');
+          const s = document.querySelector('#jqBoard .jq-svg').getBoundingClientRect();
+          return { land: v.classList.contains('jq-land'), w: Math.round(s.width), h: Math.round(s.height),
+                   pieces: document.querySelectorAll('#jqBoard .jq-p').length }; }""")
+        pg.set_viewport_size({'width': 1280, 'height': 900})
+        pg.wait_for_timeout(700)
+        results.append(('军棋页 窄屏自动切回竖放且重建后棋子不丢',
+                        shape2['land'] is False and shape2['h'] > shape2['w'] and shape2['pieces'] == 50,
+                        str(shape2)))
         hit = pg.evaluate(HITTABLE, 'jqBtnStart')
         results.append(('军棋页 开局按钮可点', hit == 'OK', hit))
 

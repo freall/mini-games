@@ -30,11 +30,13 @@ window.JUNQI_APP = (function () {
   var sel = null;                // 选中的棋子 id
   var marks = [];                // 选中后的合法落点
   var pieceEls = {};             // pid -> <g>
+  var bornSilent = false;        // 换朝向重建时不重播"出生"动画
   var nodeEls = {};              // nodeId -> 透明命中圆
   var hqEls = {};                // nodeId -> 大本营方框（告急时闪红）
   var markLayer = null, pieceLayer = null, fxLayer = null, svgEl = null;
   var logRows = 0;
   var aiBusy = false, aiTimer = null;
+  var land = false;                  // 当前棋盘朝向：宽屏横放、窄屏竖放
   var lastScore = 0;
   var soundOn = true;
 
@@ -92,14 +94,18 @@ window.JUNQI_APP = (function () {
     return g;
   }
 
-  /* SECTION: buildBoard · 一次性把 defs、线、点、特效层、命中层建好，之后只更新棋子 */
+  /* SECTION: buildBoard · 拟物沙盘
+     一次性把 defs、桌面、线、点、特效层、命中层建好，之后只更新棋子。
+     分层顺序就是叠放顺序：桌面 → 外框 → 线路 → 点位 → 火线 → 落点提示 → 棋子 → 特效 → 命中 */
   function buildBoard() {
     var host = el.jqBoard;
     if (!host) { return; }
     host.innerHTML = '';
     pieceEls = {};
-    var pad = 44;
-    var W = (D.COLS - 1) * D.UNIT + pad * 2, H = (D.ROWS - 1) * D.UNIT + pad * 2;
+    var pad = 52;
+    /* 棋盘跨度按当前朝向算：横屏时宽高互换（见 data 里的 setOrient） */
+    var box = D.gridBox();
+    var W = box.w + pad * 2, H = box.h + pad * 2;
     var svg = mk('svg', {
       viewBox: (-pad) + ' ' + (-pad) + ' ' + W + ' ' + H,
       class: 'jq-svg', role: 'img',
@@ -107,66 +113,97 @@ window.JUNQI_APP = (function () {
     });
     svgEl = svg;
 
-    /* defs：三色渐变将章（红/蓝/背面）+ 投影 + 沙盘网点纹理 */
     var defs = mk('defs', {});
-    defs.appendChild(radialGrad('jqGradRed', '#e2685a', '#8b1a13'));
-    defs.appendChild(radialGrad('jqGradBlue', '#4f8fe0', '#0f3168'));
-    /* 背面（暗棋里看不见的敌子）要明显比空兵站亮，否则一眼看去像"没子" */
-    defs.appendChild(radialGrad('jqGradBack', '#68779c', '#28324c'));
-    var sh = mk('filter', { id: 'jqSh', x: '-45%', y: '-45%', width: '190%', height: '190%' });
-    sh.appendChild(mk('feDropShadow', { dx: 0, dy: 2.6, stdDeviation: 2.4, 'flood-color': '#000', 'flood-opacity': '.62' }));
+    /* 棋子：象牙白盘面 + 墨绿背面（暗棋里没翻开的敌子） */
+    defs.appendChild(radialGrad('jqGradFace', '#fdf3dd', '#cdb48f'));
+    defs.appendChild(radialGrad('jqGradBack', '#3f6f57', '#153423'));
+    defs.appendChild(radialGrad('jqGradGlow', 'rgba(255,220,150,.20)', 'rgba(255,190,90,0)'));
+    /* 桌面呢绒 + 木框 */
+    var felt = mk('linearGradient', { id: 'jqFelt', x1: '0', y1: '0', x2: '0', y2: '1' });
+    felt.appendChild(mk('stop', { offset: '0%', 'stop-color': '#1b3b2e' }));
+    felt.appendChild(mk('stop', { offset: '46%', 'stop-color': '#12291f' }));
+    felt.appendChild(mk('stop', { offset: '100%', 'stop-color': '#0c1d16' }));
+    defs.appendChild(felt);
+    var wood = mk('linearGradient', { id: 'jqWood', x1: '0', y1: '0', x2: '1', y2: '1' });
+    wood.appendChild(mk('stop', { offset: '0%', 'stop-color': '#7a5230' }));
+    wood.appendChild(mk('stop', { offset: '48%', 'stop-color': '#4a2f1a' }));
+    wood.appendChild(mk('stop', { offset: '100%', 'stop-color': '#2a1a0e' }));
+    defs.appendChild(wood);
+    /* 棋子投影：dy 大一点、模糊一点，才有"摆在桌面上"的浮起感 */
+    var sh = mk('filter', { id: 'jqSh', x: '-50%', y: '-50%', width: '200%', height: '200%' });
+    sh.appendChild(mk('feDropShadow', { dx: 0, dy: 4, stdDeviation: 3.6, 'flood-color': '#000', 'flood-opacity': '.6' }));
     defs.appendChild(sh);
-    var pat = mk('pattern', { id: 'jqGrid', width: 22, height: 22, patternUnits: 'userSpaceOnUse' });
-    pat.appendChild(mk('circle', { cx: 1.4, cy: 1.4, r: 1, fill: 'rgba(150,190,255,.075)' }));
+    /* 呢绒织纹 */
+    var pat = mk('pattern', { id: 'jqWeave', width: 7, height: 7, patternUnits: 'userSpaceOnUse' });
+    pat.appendChild(mk('path', { d: 'M0 7 L7 0', stroke: 'rgba(255,255,255,.028)', 'stroke-width': 1 }));
+    pat.appendChild(mk('path', { d: 'M0 0 L7 7', stroke: 'rgba(0,0,0,.05)', 'stroke-width': 1 }));
     defs.appendChild(pat);
     svg.appendChild(defs);
-    svg.appendChild(mk('rect', {
-      x: -pad + 6, y: -pad + 6, width: W - 12, height: H - 12, rx: 14, fill: 'url(#jqGrid)'
+
+    /* 桌面：呢绒 + 织纹 + 中央打光 */
+    svg.appendChild(mk('rect', { x: -pad + 5, y: -pad + 5, width: W - 10, height: H - 10, rx: 16, fill: 'url(#jqFelt)' }));
+    svg.appendChild(mk('rect', { x: -pad + 5, y: -pad + 5, width: W - 10, height: H - 10, rx: 16, fill: 'url(#jqWeave)' }));
+    svg.appendChild(mk('ellipse', {
+      cx: (D.COLS - 1) * D.UNIT_X / 2, cy: (D.ROWS - 1) * D.UNIT_Y / 2,
+      rx: W * .58, ry: H * .40, fill: 'url(#jqGradGlow)'
     }));
 
-    /* 沙盘外框 + 四角刻度（阵地题名改放 HTML：画在 viewBox 里会压住第一排棋子） */
+    /* 木框 + 内沿高光 + 铜角码 */
     var gFrame = mk('g', { class: 'jq-frame' });
     gFrame.appendChild(mk('rect', {
-      x: -pad + 6, y: -pad + 6, width: W - 12, height: H - 12, rx: 14
+      x: -pad + 5, y: -pad + 5, width: W - 10, height: H - 10, rx: 16, class: 'jq-wood'
     }));
-    [[-pad + 6, -pad + 6, 1, 1], [W - pad - 6, -pad + 6, -1, 1],
-     [-pad + 6, H - pad - 6, 1, -1], [W - pad - 6, H - pad - 6, -1, -1]].forEach(function (c) {
-      gFrame.appendChild(mk('path', { d: 'M' + (c[0] + 26 * c[2]) + ' ' + c[1] + ' L' + c[0] + ' ' + c[1] + ' L' + c[0] + ' ' + (c[1] + 26 * c[3]) }));
+    gFrame.appendChild(mk('rect', {
+      x: -pad + 14, y: -pad + 14, width: W - 28, height: H - 28, rx: 11, class: 'jq-inset'
+    }));
+    [[-pad + 14, -pad + 14, 1, 1], [W - pad - 14, -pad + 14, -1, 1],
+     [-pad + 14, H - pad - 14, 1, -1], [W - pad - 14, H - pad - 14, -1, -1]].forEach(function (c) {
+      gFrame.appendChild(mk('path', {
+        class: 'jq-brass',
+        d: 'M' + (c[0] + 30 * c[2]) + ' ' + c[1] + ' L' + c[0] + ' ' + c[1] + ' L' + c[0] + ' ' + (c[1] + 30 * c[3])
+      }));
     });
     svg.appendChild(gFrame);
 
+    /* 线路：铁路 = 道砟带 + 枕木 + 两条钢轨（按垂直方向偏移画双轨） */
     var gLine = mk('g', { class: 'jq-lines' });
     D.EDGES.forEach(function (e) {
       var a = D.NODES[e.a], b = D.NODES[e.b];
-      var common = { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
-      if (e.kind === 'rail') {
-        /* 三层叠出钢轨感：粗底 → 枕木（短横虚线）→ 轨面高光 */
-        gLine.appendChild(mk('line', Object.assign({}, common, { class: 'jq-rail' })));
-        gLine.appendChild(mk('line', Object.assign({}, common, { class: 'jq-tie' })));
-        gLine.appendChild(mk('line', Object.assign({}, common, { class: 'jq-rail-hi' })));
-      } else {
+      var common = { x1: a.sx, y1: a.sy, x2: b.sx, y2: b.sy };
+      if (e.kind !== 'rail') {
         gLine.appendChild(mk('line', Object.assign({}, common, { class: 'jq-road' })));
+        return;
       }
+      var dx = b.sx - a.sx, dy = b.sy - a.sy, len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var nx = -dy / len * 3.6, ny = dx / len * 3.6;
+      gLine.appendChild(mk('line', Object.assign({}, common, { class: 'jq-bed' })));
+      gLine.appendChild(mk('line', Object.assign({}, common, { class: 'jq-tie' })));
+      gLine.appendChild(mk('line', { x1: a.sx + nx, y1: a.sy + ny, x2: b.sx + nx, y2: b.sy + ny, class: 'jq-steel' }));
+      gLine.appendChild(mk('line', { x1: a.sx - nx, y1: a.sy - ny, x2: b.sx - nx, y2: b.sy - ny, class: 'jq-steel' }));
     });
     svg.appendChild(gLine);
 
+    /* 点位：兵站画成"钻出来的孔"（下缘亮 + 上缘暗），行营画成缝了边的垫子，大本营画成铜角平台 */
     var gNode = mk('g', { class: 'jq-nodes' });
     hqEls = {};
     D.NODES.forEach(function (n) {
-      var shape;
       if (n.kind === 'camp') {
-        shape = mk('ellipse', { cx: n.x, cy: n.y, rx: 30, ry: 24, class: 'jq-camp' });
+        gNode.appendChild(mk('ellipse', { cx: n.sx, cy: n.sy, rx: 40, ry: 32, class: 'jq-camp' }));
+        gNode.appendChild(mk('ellipse', { cx: n.sx, cy: n.sy, rx: 34, ry: 26, class: 'jq-stitch' }));
       } else if (n.kind === 'hq') {
-        shape = mk('rect', { x: n.x - 31, y: n.y - 28, width: 62, height: 56, rx: 10, class: 'jq-hq' });
-        hqEls[n.id] = shape;
+        var plat = mk('rect', { x: n.sx - 41, y: n.sy - 34, width: 82, height: 68, rx: 12, class: 'jq-hq' });
+        gNode.appendChild(plat);
+        gNode.appendChild(mk('rect', {
+          x: n.sx - 35, y: n.sy - 28, width: 70, height: 56, rx: 9, class: 'jq-hq-in'
+        }));
+        hqEls[n.id] = plat;
       } else {
-        shape = mk('circle', { cx: n.x, cy: n.y, r: 20, class: 'jq-station' });
+        gNode.appendChild(mk('circle', { cx: n.sx, cy: n.sy + 1.6, r: 25, class: 'jq-hole-hi' }));
+        gNode.appendChild(mk('circle', { cx: n.sx, cy: n.sy, r: 24, class: 'jq-station' }));
       }
-      gNode.appendChild(shape);
       if (n.kind !== 'station') {
         var lab = mk('text', {
-          x: n.x, y: n.y + (n.kind === 'camp' ? 4 : 5), class: 'jq-nlabel',
-          'text-anchor': 'middle'
+          x: n.sx, y: n.sy + (n.kind === 'camp' ? 5 : 6), class: 'jq-nlabel', 'text-anchor': 'middle'
         });
         lab.textContent = n.kind === 'camp' ? '行营' : '大本营';
         gNode.appendChild(lab);
@@ -174,11 +211,12 @@ window.JUNQI_APP = (function () {
     });
     svg.appendChild(gNode);
 
-    /* 中线：两军对垒的那条缝，画成会流动的火线 */
-    var mid = (D.ROWS / 2 - 0.5) * D.UNIT;
-    svg.appendChild(mk('line', {
-      x1: -pad + 8, y1: mid, x2: (D.COLS - 1) * D.UNIT + pad - 8, y2: mid, class: 'jq-front'
-    }));
+    /* 中线：两军对垒的那条缝，画成会流动的火线（横屏时它是竖的） */
+    var mid = ((D.ROWS - 1) * D.UNIT_Y) / 2;
+    var across = ((D.COLS - 1) * D.UNIT_X);
+    svg.appendChild(D.orient()
+      ? mk('line', { x1: mid, y1: -pad + 16, x2: mid, y2: across + pad - 16, class: 'jq-front' })
+      : mk('line', { x1: -pad + 16, y1: mid, x2: across + pad - 16, y2: mid, class: 'jq-front' }));
 
     markLayer = mk('g', { class: 'jq-marks' });
     svg.appendChild(markLayer);
@@ -191,7 +229,7 @@ window.JUNQI_APP = (function () {
     var gHit = mk('g', { class: 'jq-hits' });
     nodeEls = {};
     D.NODES.forEach(function (n) {
-      var h = mk('circle', { cx: n.x, cy: n.y, r: 36, class: 'jq-hit', 'data-node': n.id });
+      var h = mk('circle', { cx: n.sx, cy: n.sy, r: 42, class: 'jq-hit', 'data-node': n.id });
       h.appendChild(mk('title', {})).textContent = C.posLabel(n.id);
       gHit.appendChild(h);
       nodeEls[n.id] = h;
@@ -206,6 +244,28 @@ window.JUNQI_APP = (function () {
     });
   }
 
+  /* SECTION: 朝向
+     5 列 × 12 行的棋盘竖着摆在电脑上是根瘦长的柱子；宽屏时横过来
+     （蓝方在左、红方在右），同一套拓扑换个坐标读法而已。
+     朝向变了就重建一次 SVG —— 棋子元素会被重建，但不重播"出生"动画。 */
+  function wantLand() {
+    var w = window.innerWidth || 1024, h = window.innerHeight || 768;
+    return w >= 900 && w > h * 1.12;
+  }
+  function applyOrient(force) {
+    var want = wantLand();
+    if (!force && want === land) { return false; }
+    land = want;
+    D.setOrient(land);
+    var view = $('viewJunqi');
+    if (view) { view.classList.toggle('jq-land', land); }
+    bornSilent = true;
+    buildBoard();
+    syncPieces();
+    drawMarks();
+    return true;
+  }
+
   /* SECTION: 特效
      打击感全靠"挂类名 + 到点自清理"，不做逐帧计算；
      任何特效元素都带 pointer-events:none（.jq-fx 上），不会挡住点击。 */
@@ -213,7 +273,7 @@ window.JUNQI_APP = (function () {
     if (!fxLayer) { return null; }
     var n = D.NODES[nodeId];
     var e = mk(cls.indexOf('float') >= 0 ? 'text' : cls.indexOf('trail') >= 0 && cls.indexOf('dot') < 0 ? 'path' : 'circle',
-      Object.assign({ class: cls, x: n.x, y: n.y, cx: n.x, cy: n.y }, extra || {}));
+      Object.assign({ class: cls, x: n.sx, y: n.sy, cx: n.sx, cy: n.sy }, extra || {}));
     if (text != null) { e.textContent = text; }
     fxLayer.appendChild(e);
     var life = cls.indexOf('float') >= 0 ? 1200 : (cls.indexOf('trail') >= 0 ? 1650 : 620);
@@ -223,8 +283,8 @@ window.JUNQI_APP = (function () {
     return e;
   }
   function fxBurst(nodeId, kind) {
-    fx(nodeId, 'jq-burst ' + (kind || 'win'), null, { r: 16 });
-    fx(nodeId, 'jq-shock', null, { r: 10 });
+    fx(nodeId, 'jq-burst ' + (kind || 'win'), null, { r: 20 });
+    fx(nodeId, 'jq-shock', null, { r: 13 });
   }
   function fxFloat(nodeId, text, kind) {
     var e = fx(nodeId, 'jq-float ' + (kind || 'good'), text);
@@ -233,8 +293,8 @@ window.JUNQI_APP = (function () {
   }
   function fxTrail(from, to) {
     var a = D.NODES[from], b = D.NODES[to];
-    fx(from, 'jq-trail', null, { d: 'M' + a.x + ' ' + a.y + ' L' + b.x + ' ' + b.y });
-    fx(from, 'jq-trail-dot', null, { r: 15 });
+    fx(from, 'jq-trail', null, { d: 'M' + a.sx + ' ' + a.sy + ' L' + b.sx + ' ' + b.sy });
+    fx(from, 'jq-trail-dot', null, { r: 20 });
   }
   function shake() {
     if (!svgEl) { return; }
@@ -245,20 +305,25 @@ window.JUNQI_APP = (function () {
     setTimeout(function () { if (svgEl) { svgEl.classList.remove('shake'); } }, 280);
   }
 
-  /* SECTION: pieces */
+  /* SECTION: pieces
+     拟物将章的叠法：投影 → 侧面厚度 → 象牙盘面 → 阵营色沿圈 → 内刻线 → 字。
+     暗棋里没翻开的敌子换成墨绿背面（真棋子翻过来就是这种素面）。 */
   function pieceEl(pid) {
     var g = pieceEls[pid];
     if (g) { return g; }
-    g = mk('g', { class: 'jq-p jq-born' });
-    g.setAttribute('filter', 'url(#jqSh)');
-    g.appendChild(mk('circle', { class: 'jq-disc', r: 31 }));
-    g.appendChild(mk('circle', { class: 'jq-inner', r: 25 }));
-    g.appendChild(mk('circle', { class: 'jq-ring', r: 35 }));
-    var t = mk('text', { class: 'jq-nm', 'text-anchor': 'middle', y: 7 });
+    g = mk('g', { class: 'jq-p' + (bornSilent ? '' : ' jq-born') });
+    g.appendChild(mk('ellipse', { class: 'jq-shadow', cx: 0, cy: 7, rx: 39, ry: 33 }));
+    g.appendChild(mk('circle', { class: 'jq-edge', cy: 5, r: 38 }));
+    g.appendChild(mk('circle', { class: 'jq-disc', r: 38 }));
+    g.appendChild(mk('circle', { class: 'jq-rim', r: 38 }));
+    g.appendChild(mk('circle', { class: 'jq-inner', r: 30 }));
+    g.appendChild(mk('circle', { class: 'jq-spec', cx: -11, cy: -14, r: 15 }));
+    g.appendChild(mk('circle', { class: 'jq-ring', r: 44 }));
+    var t = mk('text', { class: 'jq-nm', 'text-anchor': 'middle', y: 9 });
     g.appendChild(t);
     pieceLayer.appendChild(g);
     pieceEls[pid] = g;
-    setTimeout(function () { g.classList.remove('jq-born'); }, 380);
+    if (!bornSilent) { setTimeout(function () { g.classList.remove('jq-born'); }, 380); }
     return g;
   }
 
@@ -272,12 +337,11 @@ window.JUNQI_APP = (function () {
       var n = D.NODES[p.node], g = pieceEl(pid);
       var known = C.isKnown(st, pid, 0);
       g.setAttribute('class', 'jq-p jq-s' + p.owner + (known ? '' : ' jq-face-down') + (sel === pid ? ' jq-sel' : ''));
-      /* 将章面色：暗棋里看不见的敌子用"背面"渐变，翻开后恢复阵营色 */
-      var fill = !known ? 'url(#jqGradBack)' : (p.owner === 0 ? 'url(#jqGradRed)' : 'url(#jqGradBlue)');
+      var face = known ? 'url(#jqGradFace)' : 'url(#jqGradBack)';
       var disc = g.querySelector('.jq-disc');
-      if (disc.getAttribute('fill') !== fill) { disc.setAttribute('fill', fill); }
-      g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)';
-      /* ✦ 太小、？太像占位符 —— 背面用实心五角星当"军徽"，一眼是"有子但看不清" */
+      if (disc.getAttribute('fill') !== face) { disc.setAttribute('fill', face); }
+      g.style.transform = 'translate(' + n.sx + 'px,' + n.sy + 'px)';
+      /* 正面是军衔，背面是素面星徽 —— 一眼分得开"空兵站 / 未翻开 / 已翻开" */
       var label = known ? D.BY_KIND[p.k].name : '★';
       var t = g.querySelector('.jq-nm');
       if (t.textContent !== label) { t.textContent = label; }
@@ -287,8 +351,8 @@ window.JUNQI_APP = (function () {
       if (alive[pid]) { return; }
       var g = pieceEls[pid];
       delete pieceEls[pid];
-      /* 阵亡不直接消失：先翻面示众（暗棋里"原来它是军长"）再淡出，
-         换类名 jq-ghost 是为了不被 .jq-p 的计数（测试/兵力统计）算进去 */
+      /* 阵亡不直接消失：先原地翻面示众（暗棋里"原来它是军长"）再淡出。
+         换类名 jq-ghost 是为了不被 .jq-p 的计数（测试/兵力统计）算进去。 */
       g.setAttribute('class', 'jq-ghost jq-s' + (st.pieces[pid] ? st.pieces[pid].owner : 0));
       setTimeout(function () {
         if (g.parentNode) { g.parentNode.removeChild(g); }
@@ -303,9 +367,9 @@ window.JUNQI_APP = (function () {
     marks.forEach(function (m) {
       var n = D.NODES[m.to];
       if (m.capture) {
-        markLayer.appendChild(mk('circle', { cx: n.x, cy: n.y, r: 31, class: 'jq-mark-atk' }));
+        markLayer.appendChild(mk('circle', { cx: n.sx, cy: n.sy, r: 45, class: 'jq-mark-atk' }));
       } else {
-        markLayer.appendChild(mk('circle', { cx: n.x, cy: n.y, r: n.kind === 'station' ? 11 : 15, class: 'jq-mark-dot' }));
+        markLayer.appendChild(mk('circle', { cx: n.sx, cy: n.sy, r: 13, class: 'jq-mark-dot' }));
       }
     });
   }
@@ -870,6 +934,13 @@ window.JUNQI_APP = (function () {
   function bind() {
     document.addEventListener('keydown', keydown);
     document.addEventListener('click', onChooserClick);
+    /* 朝向要自己盯着窗口：多页面版没有 portal.js 的 resize 转发，
+       只有单文件版会被调用一次 —— 不自己监听，缩窗就切不回纵向棋盘。 */
+    var rz = 0;
+    window.addEventListener('resize', function () {
+      if (rz) { clearTimeout(rz); }
+      rz = setTimeout(function () { rz = 0; if (active) { applyOrient(false); } }, 180);
+    });
     if (el.jqBtnSound) { el.jqBtnSound.addEventListener('click', toggleSound); }
     if (el.jqBtnRelayout) {
       el.jqBtnRelayout.addEventListener('click', function () {
@@ -920,6 +991,10 @@ window.JUNQI_APP = (function () {
       loadStore();
       D.AUDIO.enabled = soundOn;
       bind();
+      land = wantLand();
+      D.setOrient(land);
+      var vw = $('viewJunqi');
+      if (vw) { vw.classList.toggle('jq-land', land); }
       buildBoard();
       st = C.createGame({ seed: 20260926, level: level, hidden: hidden });
       resetLog();
@@ -935,7 +1010,7 @@ window.JUNQI_APP = (function () {
       active = false;
       cancelAi();
     },
-    resize: function () { /* SVG 靠 viewBox 缩放，无需重算 */ },
+    resize: function () { applyOrient(false); },   /* 只在真的跨过朝向阈值时重建 */
     isActive: function () { return active; },
     stats: statsOf,
 
