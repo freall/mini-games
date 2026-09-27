@@ -101,6 +101,19 @@ export const GAMES = [
       'assets/junqi.js',
       'assets/boot.js'
     ]
+  },
+  {
+    id: 'shooter',
+    dir: 'shooter',
+    title: '靶场神枪手 · 小游戏乐园',
+    app: 'SHOOTER_APP',
+    bodyAttrs: ' data-game="shooter" data-home="../"',
+    scripts: [
+      'assets/shooter-data.js',
+      'assets/shooter-core.js',
+      'assets/shooter.js',
+      'assets/boot.js'
+    ]
   }
 ];
 

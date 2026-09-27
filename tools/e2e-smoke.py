@@ -16,6 +16,8 @@ overflow:hidden 裁剪、开始按钮不可见也点不到」的 P0 —— 静�
 用法：python tools/e2e-smoke.py
       python tools/e2e-smoke.py --url https://freall.github.io/mini-games
       python tools/e2e-smoke.py --single dist/小游戏乐园.html
+覆盖：门户导航 → 六款游戏各自开局、玩法关键判定、结算落盘、门户成绩回显、窄屏可点性，
+     以及「控制台/页面零报错」硬断言。
 产物：tools/_shots/*.png 截图（已 gitignore）；终端打印断言汇总，失败非零退出
 """
 import io, os, sys, threading, http.server, socketserver, functools
@@ -93,7 +95,7 @@ def run_single(path):
         pg.goto(url, wait_until='load')
         pg.wait_for_timeout(1200)
         results.append(('单文件 标题', pg.title() == '小游戏乐园 · 迷你游戏合集', pg.title()))
-        results.append(('单文件 门户 5 张卡', pg.locator('.pt-card').count() == 5,
+        results.append(('单文件 门户 6 张卡', pg.locator('.pt-card').count() == 6,
                         'cards=%d' % pg.locator('.pt-card').count()))
         results.append(('单文件 页内路由可用', pg.evaluate("() => !!window.APP_ROUTER"), ''))
 
@@ -177,6 +179,48 @@ def run_single(path):
                         'plies=%d log=%d' % (r['plies'], r['logRows'])))
         pg.evaluate("() => window.APP_ROUTER.go('portal')")
         pg.wait_for_timeout(500)
+
+        # ---- 单文件版的靶场神枪手（第六款：页内路由，与多页面版是两条代码路径） ----
+        pg.evaluate("() => window.APP_ROUTER.go('shooter')")
+        pg.wait_for_timeout(1100)
+        vis = pg.evaluate("() => getComputedStyle(document.getElementById('viewShooter')).display")
+        results.append(('单文件 切到靶场视图', vis == 'flex', 'display=%s' % vis))
+        results.append(('单文件 靶场模块已挂载',
+                        pg.evaluate("() => !!(window.SHOOTER_APP && window.SHOOTER_APP.stats().phase)"), ''))
+        hit = pg.evaluate(HITTABLE, 'shBtnStart')
+        results.append(('单文件 靶场进入靶位按钮可点', hit == 'OK', hit))
+        pg.locator('#shBtnStart').click()
+        # 倒计时 1.84s + 首发靶还有 0.55s 进场与 0.28s 升起 —— 逐帧等到"真有个能打的靶"再开枪
+        st = {'fired': 0}
+        for _ in range(14):
+            pg.wait_for_timeout(400)
+            st = pg.evaluate("""() => { const A = window.SHOOTER_APP;
+              const t = A._debugTargets().filter(x => !x.bad && x.vis)[0];
+              if (t) A._debugFire(t.x, t.y);
+              const a = A.stats();
+              return { phase: a.phase, downs: a.downs, fired: a.stats.fired, score: a.score }; }""")
+            if st['fired'] >= 1:
+                break
+        results.append(('单文件 靶场可开局并能击落',
+                        st['phase'] == 'play' and st['fired'] >= 1 and st['score'] > 0, str(st)))
+        px = pg.evaluate("() => { const c = document.getElementById('shCanvas');"
+                         " const g = c.getContext('2d');"
+                         " const d = g.getImageData(0, 0, Math.min(c.width, 600), Math.min(c.height, 400)).data;"
+                         " let n = 0; for (let i = 3; i < d.length; i += 40) { if (d[i] > 0) n++; } return n; }")
+        results.append(('单文件 靶场 canvas 已绘制', px > 50, 'nonempty=%d' % px))
+        pg.screenshot(path=os.path.join(SHOTS, 'single-shooter.png'))
+        # 单文件版要能"打完一局 → 回门户 → 卡片上看见成绩"：这才是"两份回显实现"里的另一份
+        pg.evaluate("() => { const A = window.SHOOTER_APP; const w = A._world();"
+                    " w.need = w.downs; }")      # 击落数已达标，下一帧 step 自动结算
+        pg.wait_for_timeout(700)
+        fin = pg.evaluate("() => window.SHOOTER_APP.stats().phase")
+        pg.evaluate("() => window.APP_ROUTER.go('portal')")
+        pg.wait_for_timeout(600)
+        sb = pg.locator('#ptShBest').inner_text().strip()
+        lv = pg.locator('#ptShLevel').inner_text().strip()
+        results.append(('单文件 打完一局回门户后靶场成绩与关口已回显',
+                        fin in ('clear', 'over') and sb not in ('', u'\\u2014') and '2' in lv,
+                        'phase=%s ptShBest=%s ptShLevel=%s' % (fin, sb, lv)))
         b.close()
 
     log('')
@@ -231,9 +275,9 @@ def main():
         cover = pg.locator('#ptM3Cover .pt-cover-cell').count()
         pg.screenshot(path=os.path.join(SHOTS, 'portal.png'), full_page=True)
         results.append(('门户标题', pg.title() == '小游戏乐园 · 迷你游戏合集', pg.title()))
-        results.append(('门户卡片数 = 5', cards == 5, 'cards=%d' % cards))
+        results.append(('门户卡片数 = 6', cards == 6, 'cards=%d' % cards))
         results.append(('门户封面图标已渲染', cover >= 6, 'cells=%d' % cover))
-        for i, want in enumerate(['sushi', 'match3', 'morse', 'manhole', 'junqi']):
+        for i, want in enumerate(['sushi', 'match3', 'morse', 'manhole', 'junqi', 'shooter']):
             pg.goto(base + '/', wait_until='load')
             pg.wait_for_timeout(400)
             pg.locator('.pt-card').nth(i).click()
@@ -831,6 +875,280 @@ def main():
         pg.keyboard.press('Escape')
         pg.wait_for_timeout(1000)
         results.append(('军棋页 菜单态 Escape 回乐园', pg.url.rstrip('/') == base, pg.url))
+        pg.close()
+
+        # ---- 靶场页（第六款：Canvas 打靶场，命中位置决定环数）----
+        pg = new_page()
+        pg.goto(base + '/shooter/', wait_until='load')
+        pg.wait_for_timeout(1100)
+        results.append(('靶场页 挂载 API 可用',
+                        pg.evaluate("!!(window.SHOOTER_APP && window.SHOOTER_APP.mount"
+                                    " && window.SHOOTER_APP.activate && window.SHOOTER_APP.stats)"), ''))
+        results.append(('靶场页 开始层初始显示', 'show' in (pg.locator('#shOvStart').get_attribute('class') or ''), ''))
+        hit = pg.evaluate(HITTABLE, 'shBtnStart')
+        results.append(('靶场页 进入靶位按钮可点（P0 回归：fixed 覆盖层里的按钮）', hit == 'OK', hit))
+        arm = pg.evaluate("""() => { const b = document.getElementById('shArmory').getBoundingClientRect();
+          return { h: Math.round(b.height), w: Math.round(b.width),
+                   guns: document.querySelectorAll('#shArmory .sh-gun-btn').length }; }""")
+        results.append(('靶场页 军械库已在面板滚区内排版（容器实测有尺寸）',
+                        arm['h'] > 40 and arm['w'] > 100, str(arm)))
+        gun_cards = pg.locator('#shArmory .sh-gun-btn').count()
+        results.append(('靶场页 军械库渲染出 6 把枪', gun_cards == 6, 'cards=%d' % gun_cards))
+        canvas_paint = pg.evaluate("""() => { const c = document.getElementById('shCanvas');
+          const g = c.getContext('2d'); const d = g.getImageData(0, 0, c.width, c.height).data;
+          let n = 0; for (let i = 3; i < d.length; i += 40) { if (d[i] > 0) n++; } return n; }""")
+        results.append(('靶场页 canvas 已绘制（靶场背景）', canvas_paint > 50, 'nonempty=%d' % canvas_paint))
+
+        # 菜单态 Escape 回乐园
+        pg.keyboard.press('Escape')
+        pg.wait_for_timeout(900)
+        results.append(('靶场页 菜单态 Escape 回乐园', pg.url.rstrip('/') == base, pg.url))
+
+        # 开局：跳过倒计时，等靶子升起
+        pg.goto(base + '/shooter/', wait_until='load')
+        pg.wait_for_timeout(900)
+        st0 = pg.evaluate("() => window.SHOOTER_APP._debugStart(1)")
+        results.append(('靶场页 可起局（关口 1 / 击落要求 = 关卡要求）',
+                        st0['phase'] == 'play' and st0['level'] == 1 and st0['need'] > 0,
+                        'phase=%s need=%s' % (st0['phase'], st0['need'])))
+        pg.wait_for_timeout(2000)
+        tg = pg.evaluate("() => window.SHOOTER_APP._debugTargets().map(t =>"
+                         " ({id:t.id,type:t.type,bad:t.bad,vis:t.vis,x:t.x,y:t.y,r:t.r,value:t.value}))")
+        results.append(('靶场页 靶子已生成且带渲染字段', len(tg) >= 1, 'live=%d' % len(tg)))
+        inboard = all(8 <= t['x'] <= 892 and 8 <= t['y'] <= 592 for t in tg)
+        results.append(('靶场页 靶心都在画面内', inboard, str([round(t['x']) for t in tg])))
+
+        # 打中一个可打的靶：击落数 +1、分数上涨、HUD 同步
+        shot = pg.evaluate("""() => {
+          const A = window.SHOOTER_APP;
+          const t = A._debugTargets().filter(x => !x.bad && x.vis)[0];
+          if (!t) return { skip: true };
+          const before = A.stats();
+          const evs = A._debugFire(t.x, t.y);
+          const after = A.stats();
+          return { before: before.downs, after: after.downs, need: after.need, score: after.score,
+                   hit: evs.filter(e => e.kind === 'hit').length, ring: (evs.find(e => e.kind === 'hit') || {}).ring,
+                   hud: document.getElementById('shDowns').textContent,
+                   acc: document.getElementById('shAcc').textContent }; }""")
+        results.append(('靶场页 瞄着靶心开枪能击落', shot.get('after', 0) == shot.get('before', 0) + 1 and shot.get('hit') == 1,
+                        str(shot)))
+        results.append(('靶场页 击落带环数判定（打正中拿高环）',
+                        shot.get('ring') in ('内十', '10 环'), str(shot.get('ring'))))
+        results.append(('靶场页 HUD 与逻辑同步',
+                        shot.get('hud') == '%d / %d' % (shot.get('after'), shot.get('need')),
+                        '%s vs %s' % (shot.get('after'), shot.get('hud'))))
+        results.append(('靶场页 命中率已回显', '%' in (shot.get('acc') or ''), shot.get('acc')))
+
+        # 打空：连击段归零（先把射速冷却清掉，否则这一发会被排队）
+        miss = pg.evaluate("""() => { const A = window.SHOOTER_APP; const w = A._world();
+          w.streak = 5; w.mult = 3; w.comboTimer = 2; w.cool = 0;
+          const evs = A._debugFire(30, 585);
+          const st = A.stats();
+          return { miss: evs.filter(e => e.kind === 'miss').length, streak: st.streak, mult: st.mult,
+                   combo: document.getElementById('shCombo').textContent }; }""")
+        results.append(('靶场页 打空记 miss 并断连击',
+                        miss['miss'] == 1 and miss['streak'] == 0 and miss['mult'] == 1, str(miss)))
+
+        # 弹药：打空一匣 → 自动换弹 → 上满
+        ammo = pg.evaluate("""() => { const A = window.SHOOTER_APP; const w = A._world();
+          let dry = 0;
+          for (let i = 0; i < w.gun.mag + 2; i++) { w.cool = 0; const e = A._debugFire(30, 585);
+            if (e.some(x => x.kind === 'dry')) dry++; }
+          return { ammo: w.ammo, dry: dry, pips: document.querySelectorAll('#shAmmoPips .sh-pip').length,
+                   spent: document.querySelectorAll('#shAmmoPips .sh-pip.spent').length }; }""")
+        results.append(('靶场页 打空弹匣后有空仓反馈且弹药点已画满',
+                        ammo['ammo'] == 0 and ammo['dry'] >= 1 and ammo['pips'] == ammo['spent'], str(ammo)))
+        pg.wait_for_timeout(1600)
+        re = pg.evaluate("() => { const w = window.SHOOTER_APP._world(); return { ammo: w.ammo, mag: w.gun.mag, reloading: w.reloadT > 0 }; }")
+        results.append(('靶场页 空仓自动换弹完成', re['reloading'] is False and re['ammo'] == re['mag'], str(re)))
+        # 手动换弹：R 键
+        pg.evaluate("() => { const w = window.SHOOTER_APP._world(); w.ammo = 3; }")
+        pg.keyboard.press('r')
+        pg.wait_for_timeout(120)
+        rl = pg.evaluate("() => { const w = window.SHOOTER_APP._world(); return { reloading: w.reloadT > 0, ammo: w.ammo }; }")
+        results.append(('靶场页 R 键手动换弹', rl['reloading'] is True, str(rl)))
+        pg.wait_for_timeout(1200)
+
+        # 屏息：按住 Shift 收窄散布
+        br = pg.evaluate("""() => { const A = window.SHOOTER_APP; const w = A._world();
+          w.bloom = w.gun.maxBloom;
+          const raw = A.stats().bloomEff;
+          return { raw: raw, breath: w.breath }; }""")
+        pg.keyboard.down('Shift')
+        pg.wait_for_timeout(160)
+        sh = pg.evaluate("() => { const s = window.SHOOTER_APP.stats(); return { steady: s.steady, eff: s.bloomEff }; }")
+        pg.keyboard.up('Shift')
+        results.append(('靶场页 屏息能收窄弹着散布',
+                        sh['steady'] is True and sh['eff'] < br['raw'], '%s vs raw %s' % (sh, br['raw'])))
+
+        pg.screenshot(path=os.path.join(SHOTS, 'shooter-play.png'))
+
+        # 过关：把要求改成"再打两个"，击落达标应弹结算层并落盘
+        pg.evaluate("() => { try { localStorage.setItem('shooter-best','0');"
+                    " localStorage.setItem('shooter-level','1'); } catch(e){} }")
+        pg.goto(base + '/shooter/', wait_until='load')
+        pg.wait_for_timeout(900)
+        pg.evaluate("() => window.SHOOTER_APP._debugStart(1)")
+        pg.wait_for_timeout(1800)
+        pg.evaluate("() => { const w = window.SHOOTER_APP._world(); w.need = w.downs + 2; }")
+        for _ in range(14):
+            got = pg.evaluate("""() => { const A = window.SHOOTER_APP;
+              const t = A._debugTargets().filter(x => !x.bad && x.vis)[0];
+              if (t) A._debugFire(t.x, t.y);
+              return A.stats().phase; }""")
+            if got != 'play':
+                break
+            pg.wait_for_timeout(450)
+        res = pg.evaluate("""() => ({ phase: window.SHOOTER_APP.stats().phase,
+          ov: document.querySelectorAll('#shOvOver.show').length,
+          title: document.getElementById('shRTitle').textContent,
+          grade: document.getElementById('shRGrade').textContent,
+          why: document.getElementById('shRWhy').textContent,
+          score: parseInt((document.getElementById('shRScore').textContent||'0').replace(/[^0-9]/g,''),10),
+          best: localStorage.getItem('shooter-best'), lv: localStorage.getItem('shooter-level'),
+          next: document.getElementById('shBtnNext').textContent })""")
+        results.append(('靶场页 击落达标自动过关并弹结算层',
+                        res['phase'] == 'clear' and res['ov'] == 1 and '过关' in res['title'], str(res)[:150]))
+        results.append(('靶场页 结算给出评级与说明文字', res['grade'] in ('S', 'A', 'B', 'C') and len(res['why']) > 10,
+                        '%s / %s' % (res['grade'], res['why'][:40])))
+        results.append(('靶场页 过关写入最高分与下一关进度',
+                        int(res['best'] or 0) == res['score'] and res['lv'] == '2' and '2' in res['next'], str(res)[:260]))
+        pg.locator('#shBtnNext').click()
+        pg.wait_for_timeout(1400)
+        nx = pg.evaluate("() => window.SHOOTER_APP.stats()")
+        results.append(('靶场页 点"下一关"进入第 2 关', nx['level'] == 2 and nx['phase'] in ('play', 'countdown'),
+                        'level=%s phase=%s' % (nx['level'], nx['phase'])))
+
+        # 炸雷靶：打中要扣分扣时间（第 5 关起才混进雷）；顺带验 ?level= 深链
+        pg.evaluate("() => { try { localStorage.setItem('shooter-level','5'); } catch(e){} }")
+        pg.goto(base + '/shooter/?level=5', wait_until='load')
+        pg.wait_for_timeout(900)
+        pg.evaluate("() => window.SHOOTER_APP._debugStart()")   # 不传参 = 用深链选中的关口
+        pg.wait_for_timeout(1500)
+        dl = pg.evaluate("() => { const s = window.SHOOTER_APP.stats();"
+                         " return { lv: s.level, name: s.name, need: s.need, phase: s.phase }; }")
+        results.append(('靶场页 ?level=5 深链生效（不传参起局就是第 5 关）', dl['lv'] == 5 and dl['phase'] == 'play', str(dl)))
+        bomb = None
+        for _ in range(30):
+            bm = pg.evaluate("""() => { const A = window.SHOOTER_APP;
+              const w = A._world(), D = window.SHOOTER_DATA, C = window.SHOOTER_CORE;
+              const t = A._debugTargets().filter(x => x.bad)[0];
+              if (!t) { C.spawnTarget(w, 'bomb'); return null; }   // 随机不出现就自己放一枚（否则这条断言会 flaky）
+              w.score += 400;                       // 留出扣分余量，别被"夹到 0"掩盖
+              w.streak = 6; w.mult = 3; w.cool = 0;
+              const before = A.stats();
+              const evs = A._debugFire(t.x, t.y);
+              const after = A.stats();
+              const e = evs.filter(x => x.kind === 'bomb')[0];
+              return e ? { loss: e.loss, time: e.time, before: before.score, after: after.score,
+                           tBefore: before.timeLeft, tAfter: after.timeLeft,
+                           bombs: after.stats.bombs, streak: after.streak } : null; }""")
+            if bm:
+                bomb = bm
+                break
+            pg.wait_for_timeout(380)
+        results.append(('靶场页 炸雷靶会出现（第 5 关起）', bomb is not None, str(bomb)))
+        if bomb:
+            results.append(('靶场页 打中炸雷靶扣分扣时且断连击',
+                            bomb['loss'] == 120 and bomb['after'] == bomb['before'] - 120
+                            and bomb['tAfter'] < bomb['tBefore'] and bomb['bombs'] == 1 and bomb['streak'] == 0,
+                            str(bomb)))
+
+        # 暂停 → 收工结算（重开一局，避免上一段把时间耗完）
+        pg.evaluate("() => window.SHOOTER_APP._debugStart(6)")
+        pg.wait_for_timeout(1400)
+        pre = pg.evaluate("() => { const s = window.SHOOTER_APP.stats(); return { phase: s.phase, t: s.timeLeft }; }")
+        pg.keyboard.press('Escape')
+        pg.wait_for_timeout(320)
+        mid = pg.evaluate("() => ({ phase: window.SHOOTER_APP.stats().phase,"
+                          " ov: document.querySelectorAll('#shOvPause.show').length })")
+        results.append(('靶场页 Escape 进入暂停', mid['phase'] == 'pause' and mid['ov'] == 1,
+                        'pre=%s mid=%s' % (pre, mid)))
+        pg.locator('#shBtnQuit').click()
+        pg.wait_for_timeout(700)
+        q = pg.evaluate("""() => ({ phase: window.SHOOTER_APP.stats().phase,
+          ov: document.querySelectorAll('#shOvOver.show').length,
+          title: document.getElementById('shRTitle').textContent,
+          why: document.getElementById('shRWhy').textContent })""")
+        results.append(('靶场页 暂停里"收工结算"走同一套结算且文案区分收工/超时',
+                        q['ov'] == 1 and q['phase'] in ('clear', 'over') and '收工' in q['title']
+                        and '提前收工' in q['why'], str(q)[:150]))
+
+        # 军械库：金币够时点击解锁并选用（跨局累计）
+        pg.evaluate("() => { try { localStorage.setItem('shooter-coins','2000');"
+                    " localStorage.removeItem('shooter-guns'); localStorage.setItem('shooter-gun','pistol');"
+                    " localStorage.setItem('shooter-best','3140'); localStorage.setItem('shooter-level','7'); } catch(e){} }")
+        pg.goto(base + '/shooter/', wait_until='load')
+        pg.wait_for_timeout(1000)
+        pg.locator('#shArmory .sh-gun-btn[data-gun="sniper"]').click()
+        pg.wait_for_timeout(400)
+        g1 = pg.evaluate("""() => ({ sel: document.querySelectorAll('#shArmory .sh-gun-btn.sel').length,
+          selGun: document.querySelector('#shArmory .sh-gun-btn.sel').getAttribute('data-gun'),
+          owned: localStorage.getItem('shooter-guns'), coins: localStorage.getItem('shooter-coins'),
+          name: document.getElementById('shGunName').textContent,
+          msg: document.getElementById('shArmoryMsg').textContent })""")
+        results.append(('靶场页 军械库可解锁并选用（金币扣减、跨局保存）',
+                        g1['selGun'] == 'sniper' and 'sniper' in (g1['owned'] or '')
+                        and int(g1['coins']) == 1180 and '狙击' in g1['name'], str(g1)[:160]))
+        # 狙击枪的过关要求按 pace 折算，应低于同关的手枪要求
+        need = pg.evaluate("""() => { const D = window.SHOOTER_DATA, C = window.SHOOTER_CORE;
+          const cfg = D.levelConfig(10);
+          return { pistol: C.needOf(cfg, C.gunParams(D, 'pistol')),
+                   sniper: C.needOf(cfg, C.gunParams(D, 'sniper')),
+                   chip: document.getElementById('shChooserStart').textContent }; }""")
+        results.append(('靶场页 过关要求按枪的 pace 折算（慢枪少打几个）',
+                        need['sniper'] < need['pistol'] and '靶' in need['chip'], str(need)[:120]))
+        pg.locator('#shArmory .sh-gun-btn[data-gun="pistol"]').click()
+        pg.wait_for_timeout(300)
+
+        # 关口芯片：点击可切关
+        pg.locator('#shChooserStart .sh-chip[data-shlevel="3"]').click()
+        pg.wait_for_timeout(400)
+        chip = pg.evaluate("""() => ({ sel: document.querySelector('#shChooserStart .sh-chip.sel').getAttribute('data-shlevel'),
+          name: document.getElementById('shLevelName').textContent })""")
+        results.append(('靶场页 面板选关生效且关卡名同步', chip['sel'] == '3' and '3 ·' in chip['name'], str(chip)))
+
+        # 窄屏（手机）：HUD 折行、开始按钮仍可点 —— 重新进页面，别拿上一段开好的局来量
+        pg.goto(base + '/shooter/', wait_until='load')
+        pg.wait_for_timeout(900)
+        pg.set_viewport_size({'width': 420, 'height': 820})
+        pg.wait_for_timeout(700)
+        hitm = pg.evaluate(HITTABLE, 'shBtnStart')
+        mob = pg.evaluate("""() => { const c = document.getElementById('shCanvas').getBoundingClientRect();
+          return { cw: Math.round(c.width), cols: getComputedStyle(document.querySelector('#viewShooter .sh-hud')).gridTemplateColumns.split(' ').length }; }""")
+        results.append(('靶场页 窄屏开始按钮仍可点（fixed 覆盖层不溢出）', hitm == 'OK', hitm))
+        results.append(('靶场页 窄屏画布等比缩放且 HUD 折成 3 列',
+                        0 < mob['cw'] <= 420 and mob['cols'] == 3, str(mob)))
+        pg.screenshot(path=os.path.join(SHOTS, 'shooter-mobile.png'))   # 视口截图：full_page 拼接会把 fixed 覆盖层重影
+        pg.set_viewport_size({'width': 1280, 'height': 900})
+        pg.wait_for_timeout(500)
+
+        # 门户回显（多页面门户读的是 site-src/assets/portal-home.js）
+        pg.goto(base + '/', wait_until='load')
+        pg.wait_for_timeout(800)
+        results.append(('门户 靶场最高分已回显', pg.locator('#ptShBest').inner_text().strip() == '3,140',
+                        pg.locator('#ptShBest').inner_text()))
+        results.append(('门户 靶场最远关口已回显', '第 7 关' in pg.locator('#ptShLevel').inner_text(),
+                        pg.locator('#ptShLevel').inner_text()))
+
+        # 无尽关口在门户上显示成"无尽第 N 轮"
+        pg.evaluate("() => { try { localStorage.setItem('shooter-level','12'); } catch(e){} }")
+        pg.goto(base + '/', wait_until='load')
+        pg.wait_for_timeout(700)
+        results.append(('门户 关卡 >10 显示为无尽轮数', '无尽第 2 轮' in pg.locator('#ptShLevel').inner_text(),
+                        pg.locator('#ptShLevel').inner_text()))
+
+        # 单帧性能粗测：满场靶 + 粒子时不应掉到个位数帧率
+        pg.goto(base + '/shooter/', wait_until='load')
+        pg.wait_for_timeout(900)
+        pg.evaluate("() => window.SHOOTER_APP._debugStart(10)")
+        pg.wait_for_timeout(3000)
+        fps = pg.evaluate("""() => new Promise(r => { let n = 0; const t0 = performance.now();
+          const tick = () => { n++; if (performance.now() - t0 < 1000) requestAnimationFrame(tick);
+            else r({ fps: n, live: window.SHOOTER_APP._debugTargets().length }); };
+          requestAnimationFrame(tick); })""")
+        results.append(('靶场页 满场时帧率可用（≥ 30fps）', fps['fps'] >= 30, str(fps)))
+        pg.screenshot(path=os.path.join(SHOTS, 'shooter-l10.png'))
         pg.close()
         b.close()
     if httpd:

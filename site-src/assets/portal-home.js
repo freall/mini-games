@@ -53,10 +53,18 @@
     setTxt('ptJqBest', jqBest > 0 ? jqBest.toLocaleString('zh-CN') : '—');
     setTxt('ptJqWins', jqWins > 0 ? jqWins + ' 胜 · 第 ' + jqLv + ' 关' : '尚未取胜');
 
+    /* 靶场神枪手：最高分 + 最远关口（超过 10 关显示无尽轮数） */
+    var shBest = readStore('shooter-best', 0);
+    var shLv = readStore('shooter-level', 1);
+    setTxt('ptShBest', shBest > 0 ? shBest.toLocaleString('zh-CN') : '—');
+    setTxt('ptShLevel', shLv > 1
+      ? (shLv > 10 ? '无尽第 ' + (shLv - 10) + ' 轮' : '第 ' + shLv + ' 关')
+      : '未上岗');
+
     var badge = document.getElementById('ptRecordBadge');
     if (badge) {
       badge.classList.toggle('show',
-        sushiBest > 0 || m3Best > 0 || morseBest > 0 || mhBest > 0 || jqBest > 0);
+        sushiBest > 0 || m3Best > 0 || morseBest > 0 || mhBest > 0 || jqBest > 0 || shBest > 0);
     }
   }
 

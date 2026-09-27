@@ -30,3 +30,6 @@ tools/_shots/
 
 # 本机工作目录：验证脚本临时文件、截图、工作记忆
 .workbuddy/
+
+# Qoder Sites 插件生成的本地站点描述文件（含账号/站点私有绑定，不是源）
+*.qoder.site
