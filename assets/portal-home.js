@@ -106,19 +106,10 @@
      链接写全 index.html 而不是裸目录：GitHub Pages 会把 /shooter/ 解析成
      /shooter/index.html，但 Qoder Sites 这类宿主对未知路径是「回退到根 index.html」——
      于是 /shooter/ 拿到的是门户页，而门户里的相对引用（assets/app.css）会被解析成
-     /shooter/assets/app.css 而 404，表现为"点进游戏是白板没样式"。写全两处都对。 */
+     /shooter/assets/app.css 而 404，表现为"点进游戏是白板没样式"。写全两处都对。
+     （直接访问裸目录 URL 的情况由入口门户视图里那段**内联**守卫兜底 ——
+       那种情况下这个文件自己也在 404 清单里，兜不住任何东西。） */
   function pageUrl(id) { return id + '/index.html'; }
-
-  /* 兜底：如果宿主把某个子目录路径回退成了门户页（URL 不是站点根），
-     说明真正该显示的是那一页 —— 带着查询串与锚点跳过去。
-     正常宿主（Pages / 本地预览）根本不会加载到这份脚本，所以这里是空转。 */
-  function redirectFallback() {
-    var p = window.location.pathname || '';
-    if (/^\/$/.test(p) || /\/index\.html$/i.test(p)) { return false; }
-    if (!/\/$/.test(p)) { p += '/'; }
-    window.location.replace(p + 'index.html' + (window.location.search || '') + (window.location.hash || ''));
-    return true;
-  }
 
   function bindCards() {
     var cards = document.querySelectorAll('[data-goto]');
@@ -137,8 +128,6 @@
   }
 
   function init() {
-    /* 先判回退：命中时后面这些统计/封面都不用做（页面马上要跳走） */
-    if (redirectFallback()) { return; }
     refreshStats();
     buildCover();
     bindCards();
