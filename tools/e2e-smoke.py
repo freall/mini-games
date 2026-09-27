@@ -283,7 +283,10 @@ def main():
             pg.locator('.pt-card').nth(i).click()
             pg.wait_for_load_state('load')
             pg.wait_for_timeout(500)
-            results.append(('门户第 %d 张卡 -> /%s/' % (i + 1, want), pg.url.rstrip('/').endswith('/' + want), pg.url))
+            tail = '/' + want
+            bare = pg.url.split('?')[0]
+            landed = bare.endswith(tail + '/') or bare.endswith(tail + '/index.html') or bare.endswith(tail)
+            results.append(('门户第 %d 张卡 -> %s/' % (i + 1, want), landed, pg.url))
         pg.close()
 
         def new_page():
