@@ -19,6 +19,8 @@ window.JUNQI_APP = (function () {
   var D = window.JUNQI_DATA;
   var C = window.JUNQI_CORE;
   var SVGNS = 'http://www.w3.org/2000/svg';
+  /* 一方开局总子力（用来把"打掉对方多少"折算成战果数字） */
+  var SIDE_TOTAL = D.PIECES.reduce(function (v, p) { return v + p.val * p.n; }, 0);
 
   /* SECTION: state */
   var el = {};
@@ -29,7 +31,9 @@ window.JUNQI_APP = (function () {
   var marks = [];                // 选中后的合法落点
   var pieceEls = {};             // pid -> <g>
   var nodeEls = {};              // nodeId -> 透明命中圆
-  var markLayer = null, pieceLayer = null, logRows = 0;
+  var hqEls = {};                // nodeId -> 大本营方框（告急时闪红）
+  var markLayer = null, pieceLayer = null, fxLayer = null, svgEl = null;
+  var logRows = 0;
   var aiBusy = false, aiTimer = null;
   var lastScore = 0;
   var soundOn = true;
@@ -80,25 +84,66 @@ window.JUNQI_APP = (function () {
     for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) { n.setAttribute(k, attrs[k]); } }
     return n;
   }
+  function radialGrad(id, c1, c2) {
+    var g = mk('radialGradient', { id: id, cx: '36%', cy: '28%', r: '82%' });
+    g.appendChild(mk('stop', { offset: '0%', 'stop-color': c1 }));
+    g.appendChild(mk('stop', { offset: '62%', 'stop-color': c2 }));
+    g.appendChild(mk('stop', { offset: '100%', 'stop-color': c2, 'stop-opacity': '.85' }));
+    return g;
+  }
 
-  /* SECTION: buildBoard · 一次性把线、点、命中层建好，之后只更新棋子 */
+  /* SECTION: buildBoard · 一次性把 defs、线、点、特效层、命中层建好，之后只更新棋子 */
   function buildBoard() {
     var host = el.jqBoard;
+    if (!host) { return; }
     host.innerHTML = '';
-    var pad = 62;
+    pieceEls = {};
+    var pad = 44;
+    var W = (D.COLS - 1) * D.UNIT + pad * 2, H = (D.ROWS - 1) * D.UNIT + pad * 2;
     var svg = mk('svg', {
-      viewBox: (-pad) + ' ' + (-pad) + ' ' + ((D.COLS - 1) * D.UNIT + pad * 2) + ' ' + ((D.ROWS - 1) * D.UNIT + pad * 2),
+      viewBox: (-pad) + ' ' + (-pad) + ' ' + W + ' ' + H,
       class: 'jq-svg', role: 'img',
       'aria-label': '军棋棋盘：红方在下、蓝方在上，粗线是铁路，椭圆是行营，方框是大本营'
     });
+    svgEl = svg;
+
+    /* defs：三色渐变将章（红/蓝/背面）+ 投影 + 沙盘网点纹理 */
+    var defs = mk('defs', {});
+    defs.appendChild(radialGrad('jqGradRed', '#e2685a', '#8b1a13'));
+    defs.appendChild(radialGrad('jqGradBlue', '#4f8fe0', '#0f3168'));
+    /* 背面（暗棋里看不见的敌子）要明显比空兵站亮，否则一眼看去像"没子" */
+    defs.appendChild(radialGrad('jqGradBack', '#68779c', '#28324c'));
+    var sh = mk('filter', { id: 'jqSh', x: '-45%', y: '-45%', width: '190%', height: '190%' });
+    sh.appendChild(mk('feDropShadow', { dx: 0, dy: 2.6, stdDeviation: 2.4, 'flood-color': '#000', 'flood-opacity': '.62' }));
+    defs.appendChild(sh);
+    var pat = mk('pattern', { id: 'jqGrid', width: 22, height: 22, patternUnits: 'userSpaceOnUse' });
+    pat.appendChild(mk('circle', { cx: 1.4, cy: 1.4, r: 1, fill: 'rgba(150,190,255,.075)' }));
+    defs.appendChild(pat);
+    svg.appendChild(defs);
+    svg.appendChild(mk('rect', {
+      x: -pad + 6, y: -pad + 6, width: W - 12, height: H - 12, rx: 14, fill: 'url(#jqGrid)'
+    }));
+
+    /* 沙盘外框 + 四角刻度（阵地题名改放 HTML：画在 viewBox 里会压住第一排棋子） */
+    var gFrame = mk('g', { class: 'jq-frame' });
+    gFrame.appendChild(mk('rect', {
+      x: -pad + 6, y: -pad + 6, width: W - 12, height: H - 12, rx: 14
+    }));
+    [[-pad + 6, -pad + 6, 1, 1], [W - pad - 6, -pad + 6, -1, 1],
+     [-pad + 6, H - pad - 6, 1, -1], [W - pad - 6, H - pad - 6, -1, -1]].forEach(function (c) {
+      gFrame.appendChild(mk('path', { d: 'M' + (c[0] + 26 * c[2]) + ' ' + c[1] + ' L' + c[0] + ' ' + c[1] + ' L' + c[0] + ' ' + (c[1] + 26 * c[3]) }));
+    });
+    svg.appendChild(gFrame);
 
     var gLine = mk('g', { class: 'jq-lines' });
     D.EDGES.forEach(function (e) {
       var a = D.NODES[e.a], b = D.NODES[e.b];
       var common = { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
       if (e.kind === 'rail') {
+        /* 三层叠出钢轨感：粗底 → 枕木（短横虚线）→ 轨面高光 */
         gLine.appendChild(mk('line', Object.assign({}, common, { class: 'jq-rail' })));
         gLine.appendChild(mk('line', Object.assign({}, common, { class: 'jq-tie' })));
+        gLine.appendChild(mk('line', Object.assign({}, common, { class: 'jq-rail-hi' })));
       } else {
         gLine.appendChild(mk('line', Object.assign({}, common, { class: 'jq-road' })));
       }
@@ -106,14 +151,16 @@ window.JUNQI_APP = (function () {
     svg.appendChild(gLine);
 
     var gNode = mk('g', { class: 'jq-nodes' });
+    hqEls = {};
     D.NODES.forEach(function (n) {
       var shape;
       if (n.kind === 'camp') {
-        shape = mk('ellipse', { cx: n.x, cy: n.y, rx: 33, ry: 26, class: 'jq-camp' });
+        shape = mk('ellipse', { cx: n.x, cy: n.y, rx: 30, ry: 24, class: 'jq-camp' });
       } else if (n.kind === 'hq') {
-        shape = mk('rect', { x: n.x - 32, y: n.y - 30, width: 64, height: 60, rx: 10, class: 'jq-hq' });
+        shape = mk('rect', { x: n.x - 31, y: n.y - 28, width: 62, height: 56, rx: 10, class: 'jq-hq' });
+        hqEls[n.id] = shape;
       } else {
-        shape = mk('circle', { cx: n.x, cy: n.y, r: 25, class: 'jq-station' });
+        shape = mk('circle', { cx: n.x, cy: n.y, r: 20, class: 'jq-station' });
       }
       gNode.appendChild(shape);
       if (n.kind !== 'station') {
@@ -127,7 +174,7 @@ window.JUNQI_APP = (function () {
     });
     svg.appendChild(gNode);
 
-    /* 中线：两军对垒的那条缝，画粗一点好认 */
+    /* 中线：两军对垒的那条缝，画成会流动的火线 */
     var mid = (D.ROWS / 2 - 0.5) * D.UNIT;
     svg.appendChild(mk('line', {
       x1: -pad + 8, y1: mid, x2: (D.COLS - 1) * D.UNIT + pad - 8, y2: mid, class: 'jq-front'
@@ -137,12 +184,14 @@ window.JUNQI_APP = (function () {
     svg.appendChild(markLayer);
     pieceLayer = mk('g', { class: 'jq-pieces' });
     svg.appendChild(pieceLayer);
+    fxLayer = mk('g', { class: 'jq-fx' });
+    svg.appendChild(fxLayer);
 
     /* 命中层在最上面：一个透明圆片负责该点的所有点击 */
     var gHit = mk('g', { class: 'jq-hits' });
     nodeEls = {};
     D.NODES.forEach(function (n) {
-      var h = mk('circle', { cx: n.x, cy: n.y, r: 34, class: 'jq-hit', 'data-node': n.id });
+      var h = mk('circle', { cx: n.x, cy: n.y, r: 36, class: 'jq-hit', 'data-node': n.id });
       h.appendChild(mk('title', {})).textContent = C.posLabel(n.id);
       gHit.appendChild(h);
       nodeEls[n.id] = h;
@@ -157,17 +206,59 @@ window.JUNQI_APP = (function () {
     });
   }
 
+  /* SECTION: 特效
+     打击感全靠"挂类名 + 到点自清理"，不做逐帧计算；
+     任何特效元素都带 pointer-events:none（.jq-fx 上），不会挡住点击。 */
+  function fx(nodeId, cls, text, extra) {
+    if (!fxLayer) { return null; }
+    var n = D.NODES[nodeId];
+    var e = mk(cls.indexOf('float') >= 0 ? 'text' : cls.indexOf('trail') >= 0 && cls.indexOf('dot') < 0 ? 'path' : 'circle',
+      Object.assign({ class: cls, x: n.x, y: n.y, cx: n.x, cy: n.y }, extra || {}));
+    if (text != null) { e.textContent = text; }
+    fxLayer.appendChild(e);
+    var life = cls.indexOf('float') >= 0 ? 1200 : (cls.indexOf('trail') >= 0 ? 1650 : 620);
+    setTimeout(function () {
+      if (e.parentNode) { e.parentNode.removeChild(e); }
+    }, life);
+    return e;
+  }
+  function fxBurst(nodeId, kind) {
+    fx(nodeId, 'jq-burst ' + (kind || 'win'), null, { r: 16 });
+    fx(nodeId, 'jq-shock', null, { r: 10 });
+  }
+  function fxFloat(nodeId, text, kind) {
+    var e = fx(nodeId, 'jq-float ' + (kind || 'good'), text);
+    e.setAttribute('text-anchor', 'middle');
+    return e;
+  }
+  function fxTrail(from, to) {
+    var a = D.NODES[from], b = D.NODES[to];
+    fx(from, 'jq-trail', null, { d: 'M' + a.x + ' ' + a.y + ' L' + b.x + ' ' + b.y });
+    fx(from, 'jq-trail-dot', null, { r: 15 });
+  }
+  function shake() {
+    if (!svgEl) { return; }
+    svgEl.classList.remove('shake');
+    /* 强制重排一次，让连续两次撞车都能重新播放动画 */
+    void svgEl.getBoundingClientRect();
+    svgEl.classList.add('shake');
+    setTimeout(function () { if (svgEl) { svgEl.classList.remove('shake'); } }, 280);
+  }
+
   /* SECTION: pieces */
   function pieceEl(pid) {
     var g = pieceEls[pid];
     if (g) { return g; }
-    g = mk('g', { class: 'jq-p' });
-    g.appendChild(mk('circle', { class: 'jq-disc', r: 27 }));
-    g.appendChild(mk('circle', { class: 'jq-ring', r: 27 }));
-    var t = mk('text', { class: 'jq-nm', 'text-anchor': 'middle', y: 6 });
+    g = mk('g', { class: 'jq-p jq-born' });
+    g.setAttribute('filter', 'url(#jqSh)');
+    g.appendChild(mk('circle', { class: 'jq-disc', r: 31 }));
+    g.appendChild(mk('circle', { class: 'jq-inner', r: 25 }));
+    g.appendChild(mk('circle', { class: 'jq-ring', r: 35 }));
+    var t = mk('text', { class: 'jq-nm', 'text-anchor': 'middle', y: 7 });
     g.appendChild(t);
     pieceLayer.appendChild(g);
     pieceEls[pid] = g;
+    setTimeout(function () { g.classList.remove('jq-born'); }, 380);
     return g;
   }
 
@@ -179,12 +270,15 @@ window.JUNQI_APP = (function () {
       if (!p.alive) { return; }
       alive[pid] = 1;
       var n = D.NODES[p.node], g = pieceEl(pid);
-      g.setAttribute('class', 'jq-p jq-s' + p.owner +
-        (C.isKnown(st, pid, 0) ? '' : ' jq-face-down') +
-        (sel === pid ? ' jq-sel' : '') +
-        (p.revealed && st.hidden && p.owner === 1 ? ' jq-turned' : ''));
+      var known = C.isKnown(st, pid, 0);
+      g.setAttribute('class', 'jq-p jq-s' + p.owner + (known ? '' : ' jq-face-down') + (sel === pid ? ' jq-sel' : ''));
+      /* 将章面色：暗棋里看不见的敌子用"背面"渐变，翻开后恢复阵营色 */
+      var fill = !known ? 'url(#jqGradBack)' : (p.owner === 0 ? 'url(#jqGradRed)' : 'url(#jqGradBlue)');
+      var disc = g.querySelector('.jq-disc');
+      if (disc.getAttribute('fill') !== fill) { disc.setAttribute('fill', fill); }
       g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)';
-      var label = C.isKnown(st, pid, 0) ? D.BY_KIND[p.k].name : '？';
+      /* ✦ 太小、？太像占位符 —— 背面用实心五角星当"军徽"，一眼是"有子但看不清" */
+      var label = known ? D.BY_KIND[p.k].name : '★';
       var t = g.querySelector('.jq-nm');
       if (t.textContent !== label) { t.textContent = label; }
       if (g.getAttribute('data-node') !== String(p.node)) { g.setAttribute('data-node', p.node); }
@@ -192,8 +286,13 @@ window.JUNQI_APP = (function () {
     Object.keys(pieceEls).forEach(function (pid) {
       if (alive[pid]) { return; }
       var g = pieceEls[pid];
-      g.parentNode && g.parentNode.removeChild(g);
       delete pieceEls[pid];
+      /* 阵亡不直接消失：先翻面示众（暗棋里"原来它是军长"）再淡出，
+         换类名 jq-ghost 是为了不被 .jq-p 的计数（测试/兵力统计）算进去 */
+      g.setAttribute('class', 'jq-ghost jq-s' + (st.pieces[pid] ? st.pieces[pid].owner : 0));
+      setTimeout(function () {
+        if (g.parentNode) { g.parentNode.removeChild(g); }
+      }, 620);
     });
   }
 
@@ -218,27 +317,29 @@ window.JUNQI_APP = (function () {
     if (!sel) { return; }
     var p = st.pieces[sel];
     var reach = marks.length;
-    hint(D.SIDE[0].name + ' ' + D.BY_KIND[p.k].name + '：' + C.posLabel(p.node) +
-      ' · 可走 ' + reach + ' 处' + (reach ? '（点亮的位置就是落点）' : ' —— 它动不了'));
+    hint('⚔ ' + D.BY_KIND[p.k].name + ' · ' + C.posLabel(p.node) + ' —— 可走 ' + reach + ' 处'
+      + (reach ? '（绿点进军 / 红环吃子）' : '：它动不了'));
   }
 
   function showSuspects(pid) {
     var p = st.pieces[pid];
     if (!st.hidden || p.owner === 0) {
-      hint(D.SIDE[p.owner].name + ' ' + D.BY_KIND[p.k].name + '：' + C.posLabel(p.node));
+      hint('🔍 ' + D.SIDE[p.owner].name + ' ' + D.BY_KIND[p.k].name + ' · ' + C.posLabel(p.node));
       return;
     }
     var list = C.suspects(st, pid, 0);
     var txt2 = list.map(function (x) {
       return D.BY_KIND[x.k].name + ' ' + Math.round(x.p * 100) + '%';
     }).join(' · ');
-    hint('蓝方 ' + C.posLabel(p.node) + ' 未知 —— 嫌疑：' + (txt2 || '推不出来'));
+    hint('🔍 蓝方 ' + C.posLabel(p.node) + ' 未翻开 —— 嫌疑：' + (txt2 || '推不出来'));
   }
 
   /* SECTION: 战报 */
   function pushLog(evt) {
     var box = el.jqLog;
     if (!box) { return; }
+    var empty = box.querySelector('.jq-empty');
+    if (empty) { box.removeChild(empty); }
     var d = C.describe(st, evt, 0);
     var row = document.createElement('div');
     row.className = 'jq-row k' + d.kind + (evt.side === 0 ? ' me' : ' foe');
@@ -252,26 +353,71 @@ window.JUNQI_APP = (function () {
     logRows = box.children.length;
   }
   function resetLog() {
-    if (el.jqLog) { el.jqLog.innerHTML = ''; }
+    if (!el.jqLog) { return; }
+    el.jqLog.innerHTML = '';
+    var e = document.createElement('div');
+    e.className = 'jq-empty';
+    e.textContent = '尚无战事 —— 阵亡者会在这里翻开身份，'
+      + '暗棋的推演就靠这份清单。';
+    el.jqLog.appendChild(e);
     logRows = 0;
   }
 
-  /* SECTION: HUD */
+  /* SECTION: HUD
+     除了数字，还要把"现在谁在走 / 谁占上风 / 旗有没有危险"一眼说清 ——
+     回合横幅 + 兵力对比条 + 大本营告急闪红。 */
+  function turnHeadline() {
+    if (phase === 'deploy') { return '布阵阶段'; }
+    if (phase === 'paused') { return '战线暂停'; }
+    if (phase === 'over') {
+      return !st ? '待命' : (st.winner === 0 ? '我方获胜' : st.winner === 1 ? '我方失旗' : '战线僵持');
+    }
+    if (phase !== 'play') { return '待命'; }
+    if (st && st.over) { return '结算中'; }
+    return (st && st.turn === 1) ? (aiBusy ? '蓝方思考中' : '蓝方行棋') : '红方行棋';
+  }
+
   function renderHud() {
     var lv = D.LEVELS[level - 1];
-    var phaseTxt = phase === 'deploy' ? '布阵'
-      : phase === 'paused' ? '暂停'
-      : phase === 'play' ? (st && st.over ? '结束' : (aiBusy ? '蓝方思考' : '红方行棋'))
-      : phase === 'over' ? '结算' : '待命';
-    txt('jqPhase', phaseTxt);
     txt('jqTurn', st ? (st.turn === 0 ? '红方' : '蓝方') : '—');
     txt('jqAlive0', st ? C.aliveCount(st, 0) + ' 子' : '25 子');
     txt('jqAlive1', st ? C.aliveCount(st, 1) + ' 子' : '25 子');
+    /* 战果 = 打掉对方多少子力（开局总值减去对方剩余），比"阶段"值得占一格 */
+    txt('jqKill', st ? (SIDE_TOTAL - C.material(st, 1)) : '0');
     txt('jqBest', best.toLocaleString('zh-CN'));
     txt('jqStreak', streak > 0 ? streak + ' 连胜' : '—');
     txt('jqLevelName', lv.no + ' · ' + lv.name);
     txt('jqModeTag', hidden ? '暗棋（对方军衔不公开）' : '明棋（双方都看得见）');
     txt('jqPlies', st ? st.plies + ' 手' : '0 手');
+
+    /* 旗危检测：只在真正行棋时算（要枚举对方全部着法） */
+    var danger = false;
+    if (st && !st.over && phase === 'play') {
+      try { danger = !!C.threatOf(st, 0).flagRisk; } catch (e) { danger = false; }
+    }
+    var bar = el.jqTurnBar;
+    if (bar) {
+      var blueTurn = !!(st && st.turn === 1 && !st.over && phase === 'play');
+      bar.classList.toggle('foe', blueTurn);
+      bar.classList.toggle('danger', danger);
+      txt('jqTurnText', turnHeadline() + (danger && phase === 'play' ? ' · 军旗告急' : ''));
+      txt('jqTurnSub', danger && phase === 'play'
+        ? '蓝方一步之内够到你的军旗 —— 回防或把它堵在入口外'
+        : (phase === 'play' && st && st.quiet > 18 ? '长时间无伤亡，再拖就按子力判定' : ''));
+    }
+    var m0 = st ? C.material(st, 0) : 1, m1 = st ? C.material(st, 1) : 1;
+    var sum = (m0 + m1) || 1;
+    if (el.jqMatRed) { el.jqMatRed.style.width = (m0 / sum * 100).toFixed(1) + '%'; }
+    if (el.jqMatBlue) { el.jqMatBlue.style.width = (m1 / sum * 100).toFixed(1) + '%'; }
+    txt('jqMatTxtR', '红方 ' + (st ? C.aliveCount(st, 0) : 25) + ' 子 · 兵力 ' + m0);
+    txt('jqMatTxtB', '蓝方 ' + (st ? C.aliveCount(st, 1) : 25) + ' 子 · 兵力 ' + m1);
+    Object.keys(hqEls).forEach(function (id) {
+      var n = D.NODES[id];
+      var own = n.side === 0;
+      var flagHere = st && st.occ[id] && st.pieces[st.occ[id]].k === 'junQi';
+      hqEls[id].classList.toggle('danger', !!(danger && own && flagHere));
+    });
+
     if (el.jqPips) {
       var want = D.LEVELS.map(function (x, i) {
         return (i < unlocked ? 'on' : '') + (i + 1 === level ? ' cur' : '');
@@ -351,8 +497,36 @@ window.JUNQI_APP = (function () {
     hint('空点：先点一个红方的子，落点会亮出来。');
   }
 
+  /* SECTION: 一子里的声、光、抖动
+     文案只给短促的 2~4 字（飘在棋盘上），细节留在战报里。
+     暗棋口径：阵亡者一律翻开，所以飘字里写死者的军衔不算泄底。 */
+  function fxOfEvent(evt) {
+    var r = evt.res, mine = evt.side === 0;
+    if (evt.side === 1) { fxTrail(evt.from, evt.to); }   // 标出蓝方这子从哪来
+    if (!evt.def) { return; }
+    if (r.flag) {
+      fxBurst(evt.to, 'boom'); fxFloat(evt.to, '扛旗!', 'amber'); shake(); return;
+    }
+    if (evt.dig) {
+      fxBurst(evt.to, 'win'); fxFloat(evt.to, '挖雷!', 'good'); return;
+    }
+    if (r.aDie && r.bDie) {
+      fxBurst(evt.to, 'boom'); fxFloat(evt.to, '同归于尽', 'amber'); shake(); return;
+    }
+    if (r.bDie) {
+      fxBurst(evt.to, mine ? 'win' : 'bad');
+      fxFloat(evt.to, (mine ? '击破 +' : '损 -') + D.BY_KIND[mine ? evt.dK : evt.aK].val, mine ? 'good' : 'bad');
+      if (!mine) { shake(); }
+      return;
+    }
+    fxBurst(evt.to, 'bad');
+    fxFloat(evt.to, '阵亡 -' + D.BY_KIND[evt.aK].val, 'bad');
+    shake();
+  }
+
   function afterMove(evt) {
     pushLog(evt);
+    fxOfEvent(evt);
     deselect(true);
     renderAll();
     soundOf(evt);
@@ -645,10 +819,16 @@ window.JUNQI_APP = (function () {
   /* SECTION: stats（门户回显 + 自动化断言都读这里） */
   function statsOf() {
     var s = st ? C.statsOf(st) : null;
+    var danger = false;
+    if (st && !st.over && phase === 'play') {
+      try { danger = !!C.threatOf(st, 0).flagRisk; } catch (e) { danger = false; }
+    }
     return {
       phase: phase, level: level, unlocked: unlocked, hidden: hidden,
       best: best, wins: wins, streak: streak, score: lastScore,
       selected: sel, marks: marks.length, logRows: logRows, aiBusy: aiBusy,
+      danger: danger,
+      material: st ? [C.material(st, 0), C.material(st, 1)] : null,
       state: s,
       pieces: s ? s.alive : [25, 25],
       turn: s ? s.turn : 0,
@@ -670,6 +850,9 @@ window.JUNQI_APP = (function () {
     el.jqToast = $('jqToast');
     el.jqBtnSound = $('jqBtnSound');
     el.jqPips = $('jqPips');
+    el.jqTurnBar = $('jqTurnBar');
+    el.jqMatRed = $('jqMatRed');
+    el.jqMatBlue = $('jqMatBlue');
     el.jqChooserStart = $('jqChooserStart');
     el.jqChooserOver = $('jqChooserOver');
     el.jqOvStart = $('jqOvStart');
