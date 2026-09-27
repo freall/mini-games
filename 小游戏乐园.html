@@ -477,6 +477,35 @@ button{font-family:inherit}
 
 <!-- SECTION: view-portal -->
 <div class="view active" id="viewPortal">
+  <script>
+  /* SECTION: portal-fallback-guard
+     这段必须内联在门户 markup 里，不能挪进 portal-home.js：
+     不做目录索引的宿主（Qoder Sites 就是）会把 /shooter/ 这类未知路径**回退成根 index.html**，
+     于是这份门户文档里的相对引用全变成 /shooter/assets/app.css 而 404 ——
+     那个"本来想用来兜底"的外部脚本自己也在 404 清单里，什么都兜不住。
+     判据用"样式表到底加载成功没有"而不是"路径是不是站点根"：GitHub Pages 项目页的根
+     在 /mini-games/ 这种子路径下，只看 pathname 会把正常的门户页误判成回退。 */
+  (function () {
+    var link = null, links = document.getElementsByTagName('link');
+    for (var i = 0; i < links.length; i++) {
+      if ((links[i].rel || '').toLowerCase() === 'stylesheet') { link = links[i]; break; }
+    }
+    if (!link) { return; }                 /* 单文件交付版样式是内联的，整站一页，别跳 */
+    var p = window.location.pathname || '';
+    if (p === '/' || p.charAt(p.length - 1) !== '/') { return; }
+    var done = false;
+    function go() {
+      if (done) { return; }
+      done = true;
+      window.location.replace(p + 'index.html'
+        + (window.location.search || '') + (window.location.hash || ''));
+    }
+    link.addEventListener('error', go);    /* 资源 404 → 立刻送去该路径下的真页 */
+    link.addEventListener('load', function () { done = true; });
+    /* 慢网下样式可能还没回来；最坏情况是多跳一次到同一个页面，不会成环 */
+    window.setTimeout(function () { if (!link.sheet) { go(); } }, 1200);
+  })();
+  </script>
   <div class="pt-wrap">
 
     <div class="pt-hero">

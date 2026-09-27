@@ -380,6 +380,18 @@ site/ 里有没被引用的残留文件 —— 都会直接报错或告警。
     → ① 出生位置与停稳位置都查；② 相位改成只作用于可见性判定的 `phase` 字段，不碰位置。
     规则：**任何"入场动画"都不允许让实际坐标偏离生成时校验过的坐标**。
 
+22. **同一份 `site/` 在两种宿主下的目录语义不一样**（Qoder Sites / GitHub Pages）
+    GitHub Pages 会把 `/shooter/` 解析成 `/shooter/index.html`；Qoder Sites 这类宿主对未知路径是
+    **回退到根 `index.html`**（不做目录索引）。于是裸目录链接在后者上拿到的是门户页，
+    而门户里的相对引用被解析成 `/shooter/assets/app.css` → CSS/JS 全 404，
+    表现是"点进游戏变成没样式的白板"，控制台只留一串 404。
+    → 两处一起改：① 卡片链接写全 `<id>/index.html`（两个宿主都成立）；
+      ② 门户 markup 里内联一段 `portal-fallback-guard`，用"**外链样式表有没有加载成功**"
+      判据（不能只看 pathname —— Pages 项目页的根在 `/mini-games/` 子路径下会误判）
+      把被回退错的访问带查询串与锚点送到真正那一页。
+      守卫**必须内联**：那种情况下 `portal-home.js` 自己也在 404 清单里，外部脚本兜不了自己。
+    副作用：`/morse/?mode=recv` 这类裸目录深链在 Qoder Sites 上会先回退再被守卫纠正。
+
 ---
 
 ## 六、目录速查
