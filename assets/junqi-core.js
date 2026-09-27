@@ -642,7 +642,7 @@ window.JUNQI_CORE = (function () {
       dName = (isKnown(st, evt.def, observer) || dDead) ? D.BY_KIND[evt.dK].name : '？';
     }
     var r = evt.res, head = side.name + ' ' + aName;
-    if (!evt.def) { return { head: head, tail: ' → ' + posLabel(evt.to), kind: 'move' }; }
+    if (!evt.def) { return { head: head, tail: ' → ' + posShort(evt.to), kind: 'move' }; }
     if (r.flag) { return { head: head, tail: ' 扛走军旗！', kind: 'flag' }; }
     if (r.dig) { return { head: head, tail: ' 挖掉地雷', kind: 'dig' }; }
     if (r.aDie && r.bDie) { return { head: head, tail: ' 与 ' + dName + ' 同归于尽', kind: 'boom' }; }
@@ -656,6 +656,12 @@ window.JUNQI_CORE = (function () {
     var tag = n.kind === 'hq' ? '大本营' : (n.kind === 'camp' ? '行营' : '兵站');
     var half = n.side === 1 ? '蓝方' : '红方';
     return half + '第' + (D.localRow(n.side, n.r) + 1) + '排' + COL_NAME[n.c] + '（' + tag + '）';
+  }
+  /* 战报里用短坐标：一行装得下、也更好扫 */
+  function posShort(nodeId) {
+    var n = D.NODES[nodeId];
+    var tag = n.kind === 'hq' ? '☗' : (n.kind === 'camp' ? '⛺' : '');
+    return (n.side === 1 ? '蓝' : '红') + (D.localRow(n.side, n.r) + 1) + '-' + (n.c + 1) + tag;
   }
 
   /* SECTION: scoreOf
@@ -699,7 +705,7 @@ window.JUNQI_CORE = (function () {
     poolOf: poolOf, suspects: suspects, evValue: evValue, evClash: evClash,
     chooseMove: chooseMove, threatOf: threatOf,
     canSwap: canSwap, swap: swap, relayout: relayout,
-    describe: describe, posLabel: posLabel, scoreOf: scoreOf, statsOf: statsOf,
+    describe: describe, posLabel: posLabel, posShort: posShort, scoreOf: scoreOf, statsOf: statsOf,
     shuffle: shuffle, place: newPiece,
     stationNodes: stationNodes, mineNodes: mineNodes, bombNodes: bombNodes, hqNodes: hqNodes
   };

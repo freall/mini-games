@@ -1372,29 +1372,43 @@ button{font-family:inherit}
 }
 
 /* SECTION: junqi-styles · 烽火军棋（作用域限定 #viewJunqi，不外泄）
-   视觉基调：作训室夜战 —— 深色底、沙盘质感的棋盘、红蓝两色棋子。
-   棋盘用 SVG（viewBox 白送缩放），所以本页没有任何"量像素再算尺寸"的代码，
-   也就绕开了 README 里"高度由内容决定 → 覆盖层被裁掉"那个老坑。 */
+   视觉基调：作训室夜战沙盘 —— 深色金属底、钢轨铁路、红蓝两色"将章"棋子。
+   三条硬约定：
+     1. 棋盘是 SVG（viewBox 白送缩放），按视口高度定高，整局不用滚动；
+     2. 覆盖层一律 position:fixed 铺满视口（见 README 坑 2 / 坑 6）；
+     3. 打击感动效全是 CSS keyframes + 类名切换，JS 只挂类名与到点清理，不做逐帧计算。 */
 #viewJunqi{
-  --jq-bg:#080b12;
-  --jq-panel:#111726;
+  --jq-bg:#070a11;
+  --jq-panel:#101827;
   --jq-line:rgba(140,180,255,.16);
   --jq-ink:#e9eefb;
   --jq-dim:#8b96b0;
-  --jq-red:#ff5a52;
+  --jq-red:#ff5f56;
+  --jq-red-2:#ff9c7a;
   --jq-blue:#4d9bff;
-  --jq-amber:#ffc061;
+  --jq-blue-2:#8fd0ff;
+  --jq-amber:#ffc45c;
   --jq-green:#5cf2a8;
+  position:relative;
   background:
-    radial-gradient(860px 520px at 50% -10%, rgba(255,150,90,.09), transparent 62%),
-    radial-gradient(720px 460px at 96% 104%, rgba(70,120,255,.10), transparent 62%),
-    linear-gradient(168deg,#0d1320 0%,var(--jq-bg) 55%,#05070c 100%);
+    radial-gradient(900px 520px at 50% -14%, rgba(255,150,90,.10), transparent 60%),
+    radial-gradient(760px 460px at 100% 108%, rgba(60,120,255,.12), transparent 60%),
+    linear-gradient(168deg,#0c1322 0%,var(--jq-bg) 52%,#04060b 100%);
   color:var(--jq-ink);
   font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,sans-serif;
   min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
-  padding:14px 12px 20px;
+  padding:14px 12px 22px;overflow-x:hidden;
 }
-#viewJunqi .jq-app{width:100%;max-width:820px;display:flex;flex-direction:column;gap:10px}
+/* 两道缓慢扫过的探照灯：让静态页面"活着"，透明度极低所以不干扰读盘 */
+#viewJunqi::before{
+  content:"";position:fixed;inset:-30% -10%;pointer-events:none;z-index:0;
+  background:
+    linear-gradient(115deg,transparent 42%,rgba(255,220,160,.055) 50%,transparent 58%),
+    linear-gradient(115deg,transparent 62%,rgba(120,180,255,.05) 70%,transparent 76%);
+  animation:jqSweep 22s ease-in-out infinite alternate;
+}
+@keyframes jqSweep{from{transform:translate3d(-8%,0,0)}to{transform:translate3d(8%,2%,0)}}
+#viewJunqi .jq-app{position:relative;z-index:1;width:100%;max-width:900px;display:flex;flex-direction:column;gap:9px}
 
 /* 顶栏 */
 #viewJunqi .jq-titlebar{display:flex;align-items:center;gap:12px}
@@ -1405,129 +1419,316 @@ button{font-family:inherit}
 #viewJunqi .jq-home:hover{background:rgba(255,255,255,.11);border-color:rgba(140,180,255,.34)}
 #viewJunqi .jq-brand{display:flex;align-items:center;gap:11px;flex:1;min-width:0}
 #viewJunqi .jq-mark{
-  width:44px;height:44px;border-radius:13px;flex:0 0 auto;
-  background:linear-gradient(150deg,#3a2a1a,#171a26);
-  border:1px solid rgba(255,192,97,.30);
-  display:flex;align-items:center;justify-content:center;font-size:23px;
+  width:46px;height:46px;border-radius:14px;flex:0 0 auto;position:relative;
+  background:linear-gradient(150deg,#4a2f1c,#151b28);
+  border:1px solid rgba(255,196,92,.34);
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 8px 20px rgba(0,0,0,.5);
 }
-#viewJunqi .jq-brand h1{font-size:16px;font-weight:800;letter-spacing:.02em}
-#viewJunqi .jq-brand p{font-size:10px;color:var(--jq-dim);letter-spacing:.16em;margin-top:2px}
+#viewJunqi .jq-mark::after{
+  content:"";position:absolute;inset:0;border-radius:14px;
+  box-shadow:0 0 22px rgba(255,150,60,.35);animation:jqMarkGlow 3.4s ease-in-out infinite;
+}
+@keyframes jqMarkGlow{0%,100%{opacity:.35}50%{opacity:1}}
+#viewJunqi .jq-brand h1{font-size:17px;font-weight:900;letter-spacing:.06em}
+#viewJunqi .jq-brand p{font-size:9.5px;color:var(--jq-dim);letter-spacing:.22em;margin-top:3px}
 #viewJunqi .jq-icon-btn{
   width:40px;height:40px;border-radius:11px;flex:0 0 auto;
   background:rgba(255,255,255,.05);border:1px solid var(--jq-line);
   color:var(--jq-ink);font-size:17px;cursor:pointer;transition:.18s;
 }
-#viewJunqi .jq-icon-btn:hover{background:rgba(255,255,255,.11)}
+#viewJunqi .jq-icon-btn:hover{background:rgba(255,255,255,.11);transform:translateY(-1px)}
+#viewJunqi .jq-icon-btn:active{transform:translateY(0) scale(.94)}
+
+/* 回合横幅 + 兵力对比条：一眼看清"现在谁在走、谁占上风、旗有没有危险" */
+#viewJunqi .jq-turnbar{
+  display:flex;align-items:center;gap:11px;padding:8px 12px;border-radius:12px;
+  background:linear-gradient(90deg,rgba(255,95,86,.16),rgba(255,255,255,.03) 46%,rgba(77,155,255,.10));
+  border:1px solid var(--jq-line);transition:.3s;
+}
+#viewJunqi .jq-turnbar.foe{
+  background:linear-gradient(90deg,rgba(77,155,255,.18),rgba(255,255,255,.03) 46%,rgba(255,95,86,.08));
+  border-color:rgba(120,180,255,.34);
+}
+#viewJunqi .jq-turnbar.danger{border-color:rgba(255,95,86,.62);animation:jqDanger .9s ease-in-out infinite}
+@keyframes jqDanger{
+  0%,100%{box-shadow:0 0 0 rgba(255,95,86,0)}
+  50%{box-shadow:0 0 22px rgba(255,95,86,.42),inset 0 0 18px rgba(255,95,86,.14)}
+}
+#viewJunqi .jq-turn-lamp{
+  width:11px;height:11px;border-radius:50%;flex:0 0 auto;background:var(--jq-red);
+  box-shadow:0 0 12px var(--jq-red);animation:jqLamp 1.5s ease-in-out infinite;
+}
+#viewJunqi .jq-turnbar.foe .jq-turn-lamp{background:var(--jq-blue);box-shadow:0 0 12px var(--jq-blue)}
+@keyframes jqLamp{0%,100%{opacity:.35;transform:scale(.82)}50%{opacity:1;transform:scale(1.12)}}
+#viewJunqi .jq-turnbar b{font-size:13px;font-weight:900;letter-spacing:.08em;white-space:nowrap}
+#viewJunqi .jq-turnbar .sub{font-size:11px;color:var(--jq-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#viewJunqi .jq-turnbar .sub:empty{display:none}
+#viewJunqi .jq-mat{flex:1 1 auto;min-width:90px;display:flex;flex-direction:column;gap:4px}
+#viewJunqi .jq-mat-bar{
+  position:relative;height:9px;border-radius:6px;overflow:hidden;
+  background:rgba(255,255,255,.07);box-shadow:inset 0 1px 3px rgba(0,0,0,.6);
+}
+#viewJunqi .jq-mat-bar i{position:absolute;top:0;bottom:0;display:block;transition:width .5s cubic-bezier(.22,.9,.3,1)}
+#viewJunqi .jq-mat-bar .red{left:0;background:linear-gradient(90deg,#ff8b78,#c8322c);box-shadow:0 0 12px rgba(255,95,86,.5)}
+#viewJunqi .jq-mat-bar .blue{right:0;background:linear-gradient(270deg,#8fd0ff,#1c4f96);box-shadow:0 0 12px rgba(77,155,255,.5)}
+#viewJunqi .jq-mat-bar::after{
+  content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;margin-left:-1px;background:rgba(255,255,255,.42);
+}
+#viewJunqi .jq-mat-txt{display:flex;justify-content:space-between;font-size:9.5px;color:var(--jq-dim);letter-spacing:.06em}
+#viewJunqi .jq-mat-txt .r{color:var(--jq-red-2)}
+#viewJunqi .jq-mat-txt .b{color:var(--jq-blue-2)}
 
 /* HUD */
-#viewJunqi .jq-hud{
-  display:grid;grid-template-columns:repeat(6,1fr);gap:7px;
-  background:rgba(255,255,255,.035);border:1px solid var(--jq-line);border-radius:13px;padding:9px 10px;
+#viewJunqi .jq-hud{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+#viewJunqi .jq-stat{
+  position:relative;overflow:hidden;padding:7px 9px 8px;border-radius:11px;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
+  border:1px solid var(--jq-line);
 }
-#viewJunqi .jq-stat .k{font-size:10px;color:var(--jq-dim);letter-spacing:.06em}
-#viewJunqi .jq-stat .v{font-size:15px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
-#viewJunqi .jq-stat.turn .v{color:var(--jq-amber)}
-#viewJunqi .jq-stat.a0 .v{color:var(--jq-red)}
-#viewJunqi .jq-stat.a1 .v{color:var(--jq-blue)}
+#viewJunqi .jq-stat::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(255,196,92,.55),transparent);
+}
+#viewJunqi .jq-stat .k{font-size:9.5px;color:var(--jq-dim);letter-spacing:.1em}
+#viewJunqi .jq-stat .v{
+  font-size:16px;font-weight:900;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;
+  text-shadow:0 0 14px rgba(255,255,255,.14);
+}
+#viewJunqi .jq-stat.turn .v{color:var(--jq-amber);text-shadow:0 0 14px rgba(255,196,92,.4)}
+#viewJunqi .jq-stat.a0 .v{color:var(--jq-red);text-shadow:0 0 14px rgba(255,95,86,.4)}
+#viewJunqi .jq-stat.a1 .v{color:var(--jq-blue);text-shadow:0 0 14px rgba(77,155,255,.4)}
+#viewJunqi .jq-stat.kill .v{color:var(--jq-green);text-shadow:0 0 14px rgba(92,242,168,.4)}
 
-/* 关口条 */
+/* 关口条（六边形军衔牌） */
 #viewJunqi .jq-levelbar{
-  display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--jq-dim);
-  background:rgba(255,255,255,.03);border:1px solid var(--jq-line);border-radius:11px;padding:7px 11px;
+  display:flex;align-items:center;gap:10px;font-size:11px;color:var(--jq-dim);
+  background:rgba(255,255,255,.03);border:1px solid var(--jq-line);border-radius:11px;padding:6px 11px;
 }
-#viewJunqi .jq-levelbar .lbl{letter-spacing:.1em}
-#viewJunqi .jq-levelbar .name{color:var(--jq-amber);font-weight:800;font-size:12.5px;white-space:nowrap}
+#viewJunqi .jq-levelbar .lbl{letter-spacing:.12em}
+#viewJunqi .jq-levelbar .name{color:var(--jq-amber);font-weight:900;font-size:12px;white-space:nowrap}
 #viewJunqi .jq-pips{display:flex;gap:4px;flex:1;min-width:0;flex-wrap:wrap}
 #viewJunqi .jq-pip{
-  width:15px;height:15px;border-radius:5px;padding:0;cursor:pointer;
-  background:rgba(255,255,255,.06);border:1px solid var(--jq-line);transition:.16s;
+  width:16px;height:16px;padding:0;cursor:pointer;transition:.16s;
+  background:rgba(255,255,255,.06);border:1px solid var(--jq-line);
+  clip-path:polygon(50% 0,100% 30%,100% 70%,50% 100%,0 70%,0 30%);
 }
-#viewJunqi .jq-pip.on{background:rgba(255,192,97,.22);border-color:rgba(255,192,97,.42)}
-#viewJunqi .jq-pip.cur{background:var(--jq-amber);border-color:#fff2cf;box-shadow:0 0 10px rgba(255,192,97,.5)}
-#viewJunqi .jq-pip:not(.on):not(.cur){cursor:not-allowed;opacity:.5}
+#viewJunqi .jq-pip.on{background:rgba(255,196,92,.26);border-color:rgba(255,196,92,.5)}
+#viewJunqi .jq-pip.cur{background:var(--jq-amber);box-shadow:0 0 12px rgba(255,196,92,.7)}
+#viewJunqi .jq-pip:hover{transform:translateY(-2px)}
+#viewJunqi .jq-pip:not(.on):not(.cur){cursor:not-allowed;opacity:.42}
 #viewJunqi .jq-mode{color:var(--jq-green);white-space:nowrap}
 #viewJunqi .jq-plies{white-space:nowrap;font-variant-numeric:tabular-nums}
 
-/* 主体：棋盘 + 战报 */
-#viewJunqi .jq-main{display:flex;gap:14px;align-items:flex-start;justify-content:center}
-#viewJunqi .jq-boardwrap{flex:0 0 auto;display:flex;flex-direction:column;gap:9px;width:min(340px,52vw)}
+/* 主体：棋盘 + 战报（棋盘按视口高度定高 → 一整局不用滚动） */
+#viewJunqi .jq-main{display:flex;gap:14px;align-items:stretch;justify-content:center}
+#viewJunqi .jq-boardwrap{flex:0 0 auto;display:flex;flex-direction:column;gap:8px}
+/* 桌面质感（呢绒 + 木框 + 铜角码）全画在 SVG 里了，容器只负责投影 */
 #viewJunqi .jq-board{
-  background:linear-gradient(168deg,#131b2b,#0a0f19);
-  border:1px solid rgba(140,180,255,.20);border-radius:16px;
-  box-shadow:0 22px 54px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.03);
-  padding:6px 4px;
+  position:relative;flex:1 1 auto;display:flex;align-items:flex-start;justify-content:center;
+  padding:0;filter:drop-shadow(0 26px 46px rgba(0,0,0,.62));
 }
-#viewJunqi .jq-svg{width:100%;height:auto;display:block;overflow:visible}
-#viewJunqi .jq-road{stroke:rgba(150,180,230,.30);stroke-width:2}
-#viewJunqi .jq-rail{stroke:#54688c;stroke-width:8;stroke-linecap:round}
-#viewJunqi .jq-tie{stroke:#0a0f19;stroke-width:3;stroke-dasharray:2 6}
-#viewJunqi .jq-front{stroke:rgba(255,192,97,.30);stroke-width:3;stroke-dasharray:11 9}
-#viewJunqi .jq-station{fill:#161f30;stroke:rgba(150,180,230,.34);stroke-width:1.6}
-#viewJunqi .jq-camp{fill:rgba(92,242,168,.075);stroke:rgba(92,242,168,.42);stroke-width:1.8}
-#viewJunqi .jq-hq{fill:rgba(255,192,97,.10);stroke:rgba(255,192,97,.55);stroke-width:1.8}
-#viewJunqi .jq-nlabel{fill:rgba(200,215,240,.42);font-size:13px;letter-spacing:.06em;pointer-events:none}
-#viewJunqi .jq-mark-dot{fill:rgba(92,242,168,.65)}
-#viewJunqi .jq-mark-atk{fill:none;stroke:var(--jq-red);stroke-width:3;stroke-dasharray:7 5}
+/* 棋盘按"视口高度 − 上方三条 − 阵地题名"定高 → 一整局不用滚动。
+   行距换算下来每格约 55px：棋子直径 ~48px、字号 ~19px，读得清也不会缩成点。 */
+#viewJunqi .jq-svg{
+  display:block;height:min(calc(100vh - 348px),860px);min-height:380px;
+  width:auto;max-width:100%;overflow:visible;
+}
+/* 木框 + 内沿 + 铜角码 */
+#viewJunqi .jq-wood{fill:none;stroke:url(#jqWood);stroke-width:11}
+#viewJunqi .jq-inset{fill:none;stroke:rgba(255,225,170,.16);stroke-width:1.4}
+#viewJunqi .jq-brass{fill:none;stroke:#c9a15c;stroke-width:3.4;stroke-linecap:round;opacity:.8}
+#viewJunqi .jq-frame rect{paint-order:stroke fill}
+/* 阵地题名：兼作"谁是谁"的图例（画进 viewBox 会压住第一排棋子） */
+#viewJunqi .jq-terrace{
+  display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.18em;
+  padding:5px 10px;border-radius:9px;
+}
+#viewJunqi .jq-terrace i{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+#viewJunqi .jq-terrace.foe{color:#9dc4ff;background:linear-gradient(90deg,rgba(77,155,255,.16),transparent)}
+#viewJunqi .jq-terrace.foe i{background:var(--jq-blue);box-shadow:0 0 10px var(--jq-blue)}
+#viewJunqi .jq-terrace.own{color:#ffb9ae;background:linear-gradient(90deg,rgba(255,95,86,.16),transparent)}
+#viewJunqi .jq-terrace.own i{background:var(--jq-red);box-shadow:0 0 10px var(--jq-red)}
+#viewJunqi .jq-svg.shake{animation:jqShake .26s cubic-bezier(.36,.07,.19,.97)}
+@keyframes jqShake{
+  10%,90%{transform:translate(-1px,0)}30%,70%{transform:translate(3px,-1px)}50%{transform:translate(-4px,1px)}
+}
+
+/* 线：公路是刻在呢绒上的细槽；铁路画全 —— 道砟带 + 枕木 + 两条钢轨 */
+#viewJunqi .jq-road{stroke:rgba(228,236,255,.30);stroke-width:2.4;stroke-linecap:round}
+#viewJunqi .jq-bed{stroke:rgba(214,196,158,.20);stroke-width:13;stroke-linecap:round}
+#viewJunqi .jq-tie{stroke:rgba(58,38,20,.85);stroke-width:12;stroke-dasharray:3 8}
+#viewJunqi .jq-steel{stroke:#cfd8e6;stroke-width:2.6;stroke-linecap:round;opacity:.92}
+#viewJunqi .jq-front{
+  stroke:rgba(255,196,92,.55);stroke-width:2.6;stroke-dasharray:15 11;
+  filter:drop-shadow(0 0 7px rgba(255,196,92,.55));animation:jqFront 1.6s linear infinite;
+}
+@keyframes jqFront{to{stroke-dashoffset:-26}}
+
+/* 点：兵站是钻出来的孔，行营是缝了边的垫子，大本营是铜角平台 */
+#viewJunqi .jq-hole-hi{fill:none;stroke:rgba(255,244,220,.13);stroke-width:2.4}
+#viewJunqi .jq-station{fill:rgba(4,14,10,.34);stroke:rgba(226,236,255,.30);stroke-width:1.8}
+#viewJunqi .jq-camp{fill:rgba(120,220,170,.10);stroke:rgba(150,240,195,.42);stroke-width:2.2}
+#viewJunqi .jq-stitch{fill:none;stroke:rgba(150,240,195,.4);stroke-width:1.2;stroke-dasharray:4 4}
+#viewJunqi .jq-hq{fill:rgba(255,196,92,.09);stroke:rgba(226,180,110,.62);stroke-width:2.4}
+#viewJunqi .jq-hq-in{fill:none;stroke:rgba(255,225,170,.22);stroke-width:1.2;stroke-dasharray:5 4}
+#viewJunqi .jq-hq.danger{stroke:var(--jq-red);animation:jqHqDanger .7s ease-in-out infinite}
+@keyframes jqHqDanger{
+  0%,100%{filter:drop-shadow(0 0 4px rgba(255,95,86,.3))}
+  50%{filter:drop-shadow(0 0 18px rgba(255,95,86,.9))}
+}
+#viewJunqi .jq-nlabel{fill:rgba(232,240,255,.34);font-size:13px;letter-spacing:.1em;pointer-events:none;font-weight:700}
+
+/* 落点：可走点呼吸绿点，可吃点旋转红环 */
+#viewJunqi .jq-mark-dot{fill:rgba(120,245,190,.85);filter:drop-shadow(0 0 6px rgba(92,242,168,.7));animation:jqDot .95s ease-in-out infinite}
+@keyframes jqDot{0%,100%{opacity:.45}50%{opacity:1}}
+#viewJunqi .jq-mark-atk{
+  fill:none;stroke:var(--jq-red);stroke-width:3.6;stroke-dasharray:9 7;
+  transform-box:fill-box;transform-origin:center;
+  animation:jqSpin 2.4s linear infinite;filter:drop-shadow(0 0 7px rgba(255,95,86,.65));
+}
+@keyframes jqSpin{to{transform:rotate(360deg)}}
+
+/* 棋子：拟物将章 —— 投影 / 侧面厚度 / 象牙盘面 / 阵营色沿圈 / 内刻线 / 高光 / 刻字 */
+#viewJunqi .jq-p{transition:transform .26s cubic-bezier(.3,1.4,.5,1);filter:url(#jqSh)}
+#viewJunqi .jq-shadow{fill:rgba(0,0,0,.34)}
+#viewJunqi .jq-edge{fill:#8a6f4a}
+#viewJunqi .jq-face-down .jq-edge{fill:#0e2419}
+#viewJunqi .jq-disc{stroke:rgba(0,0,0,.28);stroke-width:1.2}
+#viewJunqi .jq-rim{fill:none;stroke-width:3.2}
+#viewJunqi .jq-s0 .jq-rim{stroke:#b8342a}
+#viewJunqi .jq-s1 .jq-rim{stroke:#2f6cb0}
+#viewJunqi .jq-face-down .jq-rim{stroke:#1e4a34}
+#viewJunqi .jq-inner{fill:none;stroke:rgba(96,66,30,.3);stroke-width:1.3}
+#viewJunqi .jq-spec{fill:rgba(255,255,255,.34)}
+#viewJunqi .jq-face-down .jq-spec{fill:rgba(255,255,255,.07)}
+#viewJunqi .jq-ring{fill:none;stroke:transparent;stroke-width:3.6}
+#viewJunqi .jq-p .jq-nm{
+  font-size:26px;font-weight:900;letter-spacing:-.1em;pointer-events:none;
+  paint-order:stroke fill;stroke:rgba(255,255,255,.5);stroke-width:1.1px;
+}
+#viewJunqi .jq-s0 .jq-nm{fill:#a8261d}
+#viewJunqi .jq-s1 .jq-nm{fill:#14477f}
+/* 背面：素面 + 缝线 + 星徽，与"空兵站 / 已翻开"三者一眼分得开 */
+#viewJunqi .jq-face-down .jq-inner{stroke:rgba(190,235,210,.34);stroke-dasharray:5 5}
+#viewJunqi .jq-face-down .jq-nm{fill:rgba(214,240,228,.82);font-size:30px;letter-spacing:0;stroke:none}
+#viewJunqi .jq-sel .jq-ring{stroke:var(--jq-amber);animation:jqSelPulse 1.15s ease-in-out infinite}
+@keyframes jqSelPulse{
+  0%,100%{stroke-width:3;opacity:.6}
+  50%{stroke-width:6;opacity:1;filter:drop-shadow(0 0 16px rgba(255,196,92,.95))}
+}
+#viewJunqi .jq-born{animation:jqBorn .34s cubic-bezier(.2,1.5,.4,1)}
+@keyframes jqBorn{from{opacity:0}20%{opacity:1}}
 #viewJunqi .jq-hit{fill:rgba(0,0,0,0);stroke:none;cursor:pointer}
-#viewJunqi .jq-p{transition:transform .24s ease}
-#viewJunqi .jq-p .jq-disc{stroke-width:2}
-#viewJunqi .jq-p .jq-ring{fill:none;stroke:transparent;stroke-width:3}
-#viewJunqi .jq-p .jq-nm{font-size:19px;font-weight:800;letter-spacing:-.02em;pointer-events:none}
-#viewJunqi .jq-s0 .jq-disc{fill:#8f201a;stroke:var(--jq-red)}
-#viewJunqi .jq-s0 .jq-nm{fill:#ffe6e2}
-#viewJunqi .jq-s1 .jq-disc{fill:#123a72;stroke:var(--jq-blue)}
-#viewJunqi .jq-s1 .jq-nm{fill:#e2eeff}
-#viewJunqi .jq-face-down .jq-disc{fill:#232a3d;stroke:#55688a}
-#viewJunqi .jq-face-down .jq-nm{fill:#aeb9d4}
-#viewJunqi .jq-sel .jq-ring{stroke:var(--jq-amber);filter:drop-shadow(0 0 6px rgba(255,192,97,.75))}
-#viewJunqi .jq-turned .jq-disc{stroke-dasharray:4 3}
+
+/* 特效层：爆点 / 飘字 / 阵亡翻面 / 敌方动向轨迹（全部 pointer-events:none） */
+#viewJunqi .jq-fx{pointer-events:none}
+#viewJunqi .jq-burst{fill:none;stroke-width:5;animation:jqBurst .52s ease-out forwards}
+#viewJunqi .jq-burst.win{stroke:var(--jq-green)}
+#viewJunqi .jq-burst.bad{stroke:var(--jq-red)}
+#viewJunqi .jq-burst.boom{stroke:var(--jq-amber)}
+@keyframes jqBurst{from{r:16;opacity:.95;stroke-width:8}to{r:66;opacity:0;stroke-width:1}}
+#viewJunqi .jq-float{
+  font-size:26px;font-weight:900;paint-order:stroke fill;stroke:rgba(0,0,0,.7);stroke-width:3.6px;
+  animation:jqFloat 1.15s cubic-bezier(.2,.8,.3,1) forwards;
+}
+@keyframes jqFloat{
+  0%{opacity:0;transform:translateY(6px)}
+  22%{opacity:1;transform:translateY(-12px)}
+  100%{opacity:0;transform:translateY(-54px)}
+}
+#viewJunqi .jq-float.good{fill:var(--jq-green)}
+#viewJunqi .jq-float.bad{fill:var(--jq-red)}
+#viewJunqi .jq-float.amber{fill:var(--jq-amber)}
+/* 阵亡示众：只动 opacity 与半径 —— 棋子的位置写在行内 transform 上，
+   动效若覆盖 transform，尸体会瞬移到棋盘原点（第一版就踩过）。 */
+#viewJunqi .jq-ghost{animation:jqGhostFade .58s ease-out forwards}
+#viewJunqi .jq-ghost .jq-disc{animation:jqGhostPop .58s ease-out forwards}
+#viewJunqi .jq-ghost .jq-nm{font-size:26px;font-weight:900;paint-order:stroke fill;stroke:rgba(0,0,0,.6);stroke-width:2.8px}
+@keyframes jqGhostFade{0%{opacity:1}30%{opacity:1}100%{opacity:0}}
+@keyframes jqGhostPop{0%{r:38}30%{r:46}100%{r:30}}
+#viewJunqi .jq-trail{fill:none;stroke:rgba(143,208,255,.6);stroke-width:2.6;stroke-dasharray:7 7;
+  animation:jqTrailFade 1.6s ease-out forwards}
+#viewJunqi .jq-trail-dot{fill:none;stroke:rgba(143,208,255,.5);stroke-width:2;
+  animation:jqTrailFade 1.6s ease-out forwards}
+@keyframes jqTrailFade{from{opacity:.95}to{opacity:0}}
 
 /* 布阵条 */
 #viewJunqi .jq-deploy{
   display:none;gap:8px;align-items:center;flex-wrap:wrap;
-  background:rgba(255,192,97,.08);border:1px solid rgba(255,192,97,.30);border-radius:12px;padding:8px 10px;
+  background:linear-gradient(135deg,rgba(255,196,92,.14),rgba(255,196,92,.05));
+  border:1px solid rgba(255,196,92,.34);border-radius:12px;padding:9px 11px;
 }
-#viewJunqi .jq-deploy.show{display:flex}
-#viewJunqi .jq-deploy .tip{flex:1 1 100%;font-size:11px;color:#f0dcb4;line-height:1.5}
+#viewJunqi .jq-deploy.show{display:flex;animation:jqRise .3s ease-out}
+#viewJunqi .jq-deploy .tip{flex:1 1 100%;font-size:11px;color:#f4e0bb;line-height:1.5}
+#viewJunqi .jq-deploy .tip b{color:#fff}
 #viewJunqi .jq-dbtn{
   background:rgba(255,255,255,.07);border:1px solid var(--jq-line);color:var(--jq-ink);
-  border-radius:9px;padding:7px 12px;font-size:12px;cursor:pointer;transition:.16s;font-weight:700;
+  border-radius:9px;padding:7px 13px;font-size:12px;cursor:pointer;transition:.16s;font-weight:800;
 }
-#viewJunqi .jq-dbtn:hover{background:rgba(255,255,255,.13)}
-#viewJunqi .jq-dbtn.go{background:linear-gradient(135deg,#ffb64d,#ff7a45);color:#26120a;border-color:transparent}
+#viewJunqi .jq-dbtn:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
+#viewJunqi .jq-dbtn:active{transform:translateY(0) scale(.96)}
+#viewJunqi .jq-dbtn.go{
+  background:linear-gradient(135deg,#ffcb63,#ff7a45);color:#2a1206;border-color:transparent;
+  box-shadow:0 8px 20px rgba(255,140,60,.34);
+}
 
-/* 侧栏：战报 */
+/* 侧栏：战报 + 提示 + 图例（跟棋盘同高，不留大片空白） */
 #viewJunqi .jq-side{
-  flex:1 1 250px;min-width:0;max-width:340px;display:flex;flex-direction:column;gap:8px;
+  flex:1 1 240px;min-width:0;max-width:330px;display:flex;flex-direction:column;gap:8px;
 }
 #viewJunqi .jq-sidehead{
-  font-size:10.5px;color:var(--jq-dim);letter-spacing:.12em;
   display:flex;justify-content:space-between;align-items:center;
+  font-size:10px;color:var(--jq-dim);letter-spacing:.12em;
 }
 #viewJunqi .jq-log{
-  height:min(560px,68vh);overflow-y:auto;
-  background:rgba(255,255,255,.03);border:1px solid var(--jq-line);border-radius:12px;padding:8px;
+  flex:1 1 auto;min-height:120px;max-height:min(70vh,700px);overflow-y:auto;
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));
+  border:1px solid var(--jq-line);border-radius:12px;padding:8px;
   display:flex;flex-direction:column;gap:5px;
 }
+#viewJunqi .jq-log::-webkit-scrollbar{width:7px}
+#viewJunqi .jq-log::-webkit-scrollbar-thumb{background:rgba(140,180,255,.24);border-radius:4px}
+#viewJunqi .jq-empty{font-size:11px;color:var(--jq-dim);text-align:center;padding:20px 6px;line-height:1.8;margin:auto 0}
 #viewJunqi .jq-row{
-  display:flex;gap:7px;font-size:11.5px;line-height:1.45;
-  padding:5px 7px;border-radius:8px;background:rgba(255,255,255,.035);
+  display:flex;gap:7px;font-size:11.5px;line-height:1.45;padding:5px 8px;border-radius:8px;
+  background:rgba(255,255,255,.035);animation:jqRowIn .32s ease-out;
 }
-#viewJunqi .jq-row i{font-style:normal;color:var(--jq-dim);font-variant-numeric:tabular-nums;flex:0 0 auto}
+@keyframes jqRowIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+#viewJunqi .jq-row i{font-style:normal;color:var(--jq-dim);font-variant-numeric:tabular-nums;flex:0 0 auto;min-width:16px}
 #viewJunqi .jq-row.me{border-left:2px solid var(--jq-red)}
 #viewJunqi .jq-row.foe{border-left:2px solid var(--jq-blue)}
-#viewJunqi .jq-row.kboom{background:rgba(255,120,90,.12)}
-#viewJunqi .jq-row.kflag{background:rgba(255,192,97,.18);font-weight:800}
-#viewJunqi .jq-row.kdig{background:rgba(92,242,168,.10)}
-#viewJunqi .jq-hintbox{
-  min-height:52px;font-size:11.5px;line-height:1.55;color:#dfe7f7;
-  background:rgba(77,155,255,.07);border:1px solid rgba(77,155,255,.22);border-radius:11px;padding:9px 11px;
+#viewJunqi .jq-row.kwin{background:rgba(92,242,168,.09)}
+#viewJunqi .jq-row.klose{background:rgba(255,95,86,.09)}
+#viewJunqi .jq-row.kboom{background:rgba(255,140,90,.13)}
+#viewJunqi .jq-row.kdig{background:rgba(92,242,168,.12)}
+#viewJunqi .jq-row.kflag{
+  background:linear-gradient(90deg,rgba(255,196,92,.28),rgba(255,196,92,.08));
+  font-weight:900;color:#fff3d6;
 }
+#viewJunqi .jq-hintbox{
+  flex:0 0 auto;min-height:54px;font-size:11.5px;line-height:1.6;color:#e2eafc;
+  background:linear-gradient(135deg,rgba(77,155,255,.12),rgba(77,155,255,.04));
+  border:1px solid rgba(77,155,255,.26);border-radius:11px;padding:9px 11px;
+}
+#viewJunqi .jq-legend{
+  flex:0 0 auto;display:flex;flex-wrap:wrap;gap:5px 12px;font-size:10px;color:var(--jq-dim);
+  border:1px dashed var(--jq-line);border-radius:11px;padding:8px 10px;
+}
+#viewJunqi .jq-legend span{display:flex;align-items:center;gap:5px;white-space:nowrap}
+#viewJunqi .jq-legend b{width:12px;height:12px;border-radius:50%;display:inline-block;flex:0 0 auto}
+#viewJunqi .jq-legend .lb-rail{border-radius:3px;background:#5b7096;height:5px;width:16px}
+#viewJunqi .jq-legend .lb-camp{background:rgba(92,242,168,.28);border:1px solid rgba(92,242,168,.7)}
+#viewJunqi .jq-legend .lb-hq{background:rgba(255,196,92,.3);border:1px solid rgba(255,196,92,.8);border-radius:3px}
+#viewJunqi .jq-legend .lb-st{background:#151f31;border:1px solid rgba(150,180,230,.6)}
+
 #viewJunqi .jq-toast{
-  position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);
-  background:rgba(16,22,36,.95);border:1px solid rgba(255,192,97,.42);color:#ffe6bf;
-  border-radius:11px;padding:9px 15px;font-size:12.5px;font-weight:700;
+  position:fixed;left:50%;bottom:82px;transform:translate(-50%,14px);
+  background:linear-gradient(135deg,rgba(28,36,56,.97),rgba(14,20,34,.97));
+  border:1px solid rgba(255,196,92,.45);color:#ffe9c4;
+  border-radius:11px;padding:9px 16px;font-size:12.5px;font-weight:800;
   opacity:0;pointer-events:none;transition:.22s;z-index:80;
+  box-shadow:0 14px 40px rgba(0,0,0,.6);
 }
 #viewJunqi .jq-toast.show{opacity:1;transform:translate(-50%,0)}
 
@@ -1546,33 +1747,43 @@ button{font-family:inherit}
 #viewJunqi .jq-ov{
   position:fixed;inset:0;z-index:60;display:none;
   align-items:center;justify-content:center;padding:18px;
-  background:rgba(4,6,11,.82);backdrop-filter:blur(9px);
+  background:radial-gradient(circle at 50% 40%,rgba(10,16,28,.74),rgba(3,5,10,.94));
+  backdrop-filter:blur(10px);
 }
 #viewJunqi .jq-ov.show{display:flex}
 #viewJunqi .jq-panel{
-  width:100%;max-width:470px;max-height:92vh;overflow-y:auto;
-  background:linear-gradient(168deg,#162034,#0e1626 62%,#0a0f1c);
-  border:1px solid rgba(140,180,255,.24);border-radius:20px;
+  width:100%;max-width:480px;max-height:92vh;overflow-y:auto;
+  background:linear-gradient(168deg,#1b2740,#0b111e 66%);
+  border:1px solid rgba(140,180,255,.26);border-radius:22px;
   padding:24px 22px;text-align:center;
-  box-shadow:0 26px 70px rgba(0,0,0,.66);
+  box-shadow:0 30px 80px rgba(0,0,0,.72),inset 0 1px 0 rgba(255,255,255,.08);
+  animation:jqPanelIn .34s cubic-bezier(.2,1.2,.35,1);
 }
-#viewJunqi .jq-art{font-size:52px;line-height:1.1}
-#viewJunqi .jq-panel h2{font-size:21px;font-weight:900;margin-top:8px}
-#viewJunqi .jq-en{font-size:10px;letter-spacing:.24em;color:var(--jq-dim);margin-top:3px}
-#viewJunqi .jq-lead{font-size:12.5px;line-height:1.75;color:#cfd9ee;margin:13px 0 4px}
+@keyframes jqPanelIn{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes jqRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#viewJunqi .jq-art{
+  font-size:56px;line-height:1.1;display:inline-block;
+  filter:drop-shadow(0 8px 22px rgba(255,150,60,.4));animation:jqArtIn .5s cubic-bezier(.2,1.6,.4,1);
+}
+@keyframes jqArtIn{from{opacity:0;transform:scale(.4) rotate(-14deg)}to{opacity:1;transform:none}}
+#viewJunqi .jq-panel h2{font-size:22px;font-weight:900;letter-spacing:.04em;margin-top:8px}
+#viewJunqi .jq-en{font-size:9.5px;letter-spacing:.3em;color:var(--jq-dim);margin-top:4px}
+#viewJunqi .jq-lead{font-size:12.5px;line-height:1.8;color:#d3ddf0;margin:13px 0 4px}
 #viewJunqi .jq-lead b{color:#fff}
 #viewJunqi .jq-rules{
-  margin:13px 0 4px;padding:11px;background:rgba(255,255,255,.035);
-  border:1px solid var(--jq-line);border-radius:12px;text-align:left;
-  display:flex;flex-direction:column;gap:6px;
+  margin:14px 0 4px;padding:12px;text-align:left;
+  background:linear-gradient(135deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+  border:1px solid var(--jq-line);border-radius:13px;
+  display:flex;flex-direction:column;gap:7px;
 }
-#viewJunqi .jq-rule{display:flex;gap:8px;font-size:11.5px;line-height:1.55;color:#cbd6ea}
-#viewJunqi .jq-rule i{font-style:normal;flex:0 0 auto;font-size:14px}
+#viewJunqi .jq-rule{display:flex;gap:9px;font-size:11.5px;line-height:1.6;color:#ccd7eb}
+#viewJunqi .jq-rule i{font-style:normal;flex:0 0 auto;font-size:15px}
 #viewJunqi .jq-rule b{color:#fff}
 #viewJunqi .jq-brief{
-  display:flex;justify-content:center;gap:16px;font-size:11px;color:var(--jq-dim);margin:10px 0 2px;
+  display:flex;justify-content:center;gap:18px;font-size:9.5px;color:var(--jq-dim);
+  margin:12px 0 2px;letter-spacing:.1em;
 }
-#viewJunqi .jq-brief b{color:var(--jq-amber);font-size:13px;font-variant-numeric:tabular-nums}
+#viewJunqi .jq-brief b{display:block;color:var(--jq-amber);font-size:15px;margin-top:2px;font-variant-numeric:tabular-nums}
 #viewJunqi .jq-chooser{margin:14px 0 4px;text-align:left}
 #viewJunqi .jq-chooser-title{font-size:10.5px;color:var(--jq-dim);letter-spacing:.1em;margin-bottom:7px}
 #viewJunqi .jq-chooser-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
@@ -1580,51 +1791,363 @@ button{font-family:inherit}
   background:rgba(255,255,255,.05);border:1px solid var(--jq-line);color:var(--jq-ink);
   border-radius:9px;padding:6px 11px;font-size:11.5px;cursor:pointer;transition:.16s;font-weight:700;
 }
-#viewJunqi .jq-chip:hover{background:rgba(255,255,255,.11)}
-#viewJunqi .jq-chip.sel{border-color:rgba(255,192,97,.75);background:rgba(255,192,97,.14);color:#ffe4bb}
-#viewJunqi .jq-chip.lock{opacity:.42;cursor:not-allowed}
-#viewJunqi .jq-chip.mode{border-color:rgba(92,242,168,.34)}
-#viewJunqi .jq-chip.mode.sel{border-color:rgba(92,242,168,.8);background:rgba(92,242,168,.14);color:#c9ffe4}
+#viewJunqi .jq-chip:hover{background:rgba(255,255,255,.11);transform:translateY(-1px)}
+#viewJunqi .jq-chip:active{transform:translateY(0) scale(.95)}
+#viewJunqi .jq-chip.sel{
+  border-color:rgba(255,196,92,.8);background:rgba(255,196,92,.16);color:#ffe9c0;
+  box-shadow:0 0 14px rgba(255,196,92,.24);
+}
+#viewJunqi .jq-chip.lock{opacity:.4;cursor:not-allowed}
+#viewJunqi .jq-chip.mode{border-color:rgba(92,242,168,.36)}
+#viewJunqi .jq-chip.mode.sel{
+  border-color:rgba(92,242,168,.85);background:rgba(92,242,168,.16);color:#c9ffe4;
+  box-shadow:0 0 14px rgba(92,242,168,.22);
+}
 #viewJunqi .jq-chooser-note{font-size:10.5px;color:var(--jq-dim)}
 #viewJunqi .jq-btn{
-  display:block;width:100%;margin-top:9px;padding:13px;border:0;border-radius:12px;
-  font-size:15px;font-weight:800;cursor:pointer;transition:.18s;
-  background:linear-gradient(135deg,#ffb64d,#ff5a52);color:#2a0f0a;
-  box-shadow:0 10px 26px rgba(255,120,90,.32);
+  display:block;width:100%;margin-top:9px;padding:13px;border:0;border-radius:13px;
+  font-size:15px;font-weight:900;letter-spacing:.06em;cursor:pointer;transition:.18s;
+  background:linear-gradient(135deg,#ffcb63,#ff5f56);color:#2a0f0a;
+  box-shadow:0 12px 30px rgba(255,120,90,.34),inset 0 1px 0 rgba(255,255,255,.35);
 }
-#viewJunqi .jq-btn:hover{filter:brightness(1.07);transform:translateY(-1px)}
+#viewJunqi .jq-btn:hover{filter:brightness(1.07);transform:translateY(-2px);box-shadow:0 16px 38px rgba(255,120,90,.42)}
+#viewJunqi .jq-btn:active{transform:translateY(0) scale(.985)}
 #viewJunqi .jq-btn.ghost{
   background:rgba(255,255,255,.05);color:var(--jq-ink);
-  border:1px solid var(--jq-line);box-shadow:none;font-weight:600;
+  border:1px solid var(--jq-line);box-shadow:none;font-weight:700;
 }
 #viewJunqi .jq-btn.ghost:hover{background:rgba(255,255,255,.11)}
-#viewJunqi .jq-hint{font-size:11px;color:var(--jq-dim);line-height:1.75;margin-top:14px}
+#viewJunqi .jq-hint{font-size:11px;color:var(--jq-dim);line-height:1.8;margin-top:14px}
 #viewJunqi .jq-hint kbd{
   background:rgba(255,255,255,.09);border:1px solid var(--jq-line);
   border-radius:5px;padding:1px 5px;font-size:10.5px;font-family:inherit;
 }
 #viewJunqi .jq-result{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 6px}
-#viewJunqi .jq-rcell{background:rgba(255,255,255,.04);border:1px solid var(--jq-line);border-radius:10px;padding:9px 7px}
-#viewJunqi .jq-rcell .k{font-size:10px;color:var(--jq-dim);margin-bottom:4px}
-#viewJunqi .jq-rcell .v{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}
+#viewJunqi .jq-rcell{
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+  border:1px solid var(--jq-line);border-radius:11px;padding:9px 7px;transition:.2s;
+}
+#viewJunqi .jq-rcell:hover{transform:translateY(-2px);border-color:rgba(140,180,255,.4)}
+#viewJunqi .jq-rcell .k{font-size:9.5px;color:var(--jq-dim);letter-spacing:.06em}
+#viewJunqi .jq-rcell .v{font-size:17px;font-weight:900;margin-top:3px;font-variant-numeric:tabular-nums}
 #viewJunqi .jq-record{
-  display:none;font-size:12.5px;font-weight:800;color:var(--jq-amber);margin:12px 0 2px;
+  display:none;font-size:13px;font-weight:900;color:var(--jq-amber);margin:12px 0 2px;
 }
-#viewJunqi .jq-record.show{display:block}
+#viewJunqi .jq-record.show{display:block;animation:jqPop .6s cubic-bezier(.2,1.6,.4,1)}
+@keyframes jqPop{0%{opacity:0;transform:scale(.5)}60%{transform:scale(1.14)}100%{opacity:1;transform:scale(1)}}
 #viewJunqi .jq-why{
-  font-size:12px;line-height:1.65;color:#dfe7f7;
+  font-size:12px;line-height:1.7;color:#dfe7f7;text-align:left;
   background:rgba(255,255,255,.05);border:1px solid var(--jq-line);
-  border-radius:9px;padding:9px 11px;margin:12px 0 2px;text-align:left;
+  border-radius:10px;padding:10px 12px;margin:12px 0 2px;
 }
-#viewJunqi .jq-why.good{border-color:rgba(92,242,168,.4);background:rgba(92,242,168,.08);color:#c9ffe4}
-#viewJunqi .jq-why.bad{border-color:rgba(255,90,82,.4);background:rgba(255,90,82,.08);color:#ffd8d4}
+#viewJunqi .jq-why.good{
+  border-color:rgba(92,242,168,.45);color:#c9ffe4;
+  background:linear-gradient(135deg,rgba(92,242,168,.14),rgba(92,242,168,.04));
+}
+#viewJunqi .jq-why.bad{
+  border-color:rgba(255,95,86,.45);color:#ffd8d4;
+  background:linear-gradient(135deg,rgba(255,95,86,.14),rgba(255,95,86,.04));
+}
 
-@media (max-width:720px){
+/* ── 宽屏：棋盘横过来摆（蓝方在左、红方在右）──────────────
+   竖着摆时 5 列 × 12 行是根瘦长的柱子；横过来比例正好反过来，
+   1160×600 的 viewBox 铺满电脑屏幕，棋子也能放大到看得清的字。 */
+#viewJunqi.jq-land .jq-app{max-width:1560px}
+#viewJunqi.jq-land .jq-main{gap:10px}
+#viewJunqi.jq-land .jq-boardwrap{flex:1 1 auto;min-width:0;flex-direction:row;align-items:center;gap:10px}
+#viewJunqi.jq-land .jq-board{flex:1 1 auto;min-width:0}
+#viewJunqi.jq-land .jq-svg{
+  width:min(100%,calc((100vh - 300px) * 1.933));height:auto;min-height:0;margin:0 auto;
+}
+#viewJunqi.jq-land .jq-terrace{
+  flex:0 0 auto;writing-mode:vertical-rl;padding:10px 5px;font-size:9.5px;letter-spacing:.22em;
+}
+#viewJunqi.jq-land .jq-terrace.foe{background:linear-gradient(180deg,rgba(77,155,255,.18),transparent)}
+#viewJunqi.jq-land .jq-terrace.own{
+  background:linear-gradient(0deg,rgba(255,95,86,.18),transparent);transform:rotate(180deg);
+}
+#viewJunqi.jq-land .jq-side{flex:0 0 300px;max-width:300px}
+#viewJunqi.jq-land .jq-log{max-height:none;flex:1 1 auto}
+#viewJunqi.jq-land .jq-legend{flex:0 0 auto}
+
+@media (max-width:760px){
   #viewJunqi .jq-main{flex-direction:column;align-items:center}
-  #viewJunqi .jq-boardwrap{width:min(300px,86vw)}
-  #viewJunqi .jq-side{max-width:360px;width:100%}
-  #viewJunqi .jq-log{height:230px}
+  #viewJunqi .jq-svg{height:min(64vh,600px)}
+  #viewJunqi .jq-toast{bottom:70px}
+  #viewJunqi .jq-side{max-width:420px;width:100%}
+  #viewJunqi .jq-log{max-height:230px}
   #viewJunqi .jq-hud{grid-template-columns:repeat(3,1fr)}
+  #viewJunqi .jq-turnbar{flex-wrap:wrap}
+  #viewJunqi .jq-mat{flex:1 1 100%;order:3}
   #viewJunqi .jq-panel{padding:20px 16px}
-  #viewJunqi .jq-art{font-size:44px}
+  #viewJunqi .jq-art{font-size:46px}
+}
+
+/* SECTION: shooter-styles · 靶场神枪手（作用域限定 #viewShooter，不外泄）
+   视觉基调：夜里的外射场 —— 深色背板 + 木质靶道 + 纸靶红白环 + 黄铜弹壳。
+   三条硬约定与军棋一致：
+     1. 画面是单张 canvas（设计分辨率 900×600，backing store 按 dpr，CSS 等比缩放）；
+     2. 覆盖层一律 position:fixed 铺满视口（见 README 坑 2 / 坑 6），别放进按内容定高的容器；
+     3. 准星/弹道/碎屑全在 canvas 里逐帧画，DOM 只负责 HUD 数字与面板 ——
+        反过来（用 DOM 画靶）会让"60 帧跟随鼠标"变成布局抖动。 */
+#viewShooter{
+  --sh-bg:#080a0e;
+  --sh-panel:#121824;
+  --sh-line:rgba(160,190,235,.16);
+  --sh-ink:#eef2fa;
+  --sh-dim:#8b96ad;
+  --sh-amber:#ffc45c;
+  --sh-red:#ff5a52;
+  --sh-cyan:#66e8ff;
+  --sh-green:#5cf2a8;
+  --sh-paper:#f2e9d8;
+  position:relative;
+  background:
+    radial-gradient(820px 460px at 50% -10%, rgba(255,196,92,.10), transparent 62%),
+    radial-gradient(700px 420px at 6% 106%, rgba(90,150,255,.10), transparent 60%),
+    linear-gradient(170deg,#0d1320 0%,var(--sh-bg) 55%,#05070b 100%);
+  color:var(--sh-ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,sans-serif;
+  min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+  padding:14px 12px 22px;overflow-x:hidden;
+}
+#viewShooter .sh-app{position:relative;z-index:1;width:100%;max-width:960px;display:flex;flex-direction:column;gap:9px}
+
+/* 顶栏 */
+#viewShooter .sh-titlebar{display:flex;align-items:center;gap:10px}
+#viewShooter .sh-home{
+  background:rgba(255,255,255,.06);border:1px solid var(--sh-line);color:var(--sh-ink);
+  border-radius:10px;padding:7px 12px;font-size:12px;cursor:pointer;transition:.18s;white-space:nowrap;font-weight:700;
+}
+#viewShooter .sh-home:hover{background:rgba(255,255,255,.12);transform:translateX(-2px)}
+#viewShooter .sh-brand{display:flex;align-items:center;gap:9px;flex:1 1 auto;min-width:0}
+#viewShooter .sh-mark{
+  width:36px;height:36px;flex:0 0 auto;border-radius:50%;
+  background:radial-gradient(circle at 50% 45%,#fff 0 12%,var(--sh-red) 13% 30%,#fff 31% 48%,var(--sh-red) 49% 66%,#fff 67% 84%,var(--sh-red) 85%);
+  box-shadow:0 0 0 2px rgba(255,196,92,.55),0 8px 22px rgba(255,90,82,.34);
+  display:grid;place-items:center;font-size:15px;
+}
+#viewShooter .sh-brand h1{font-size:17px;font-weight:900;letter-spacing:.03em}
+#viewShooter .sh-brand p{font-size:9.5px;letter-spacing:.24em;color:var(--sh-dim);margin-top:2px}
+#viewShooter .sh-icon-btn{
+  background:rgba(255,255,255,.06);border:1px solid var(--sh-line);color:var(--sh-ink);
+  width:34px;height:34px;border-radius:10px;font-size:15px;cursor:pointer;transition:.18s;
+}
+#viewShooter .sh-icon-btn:hover{background:rgba(255,255,255,.12)}
+#viewShooter .sh-icon-btn.off{opacity:.5}
+
+/* 枪况条：弹药 / 换弹 / 屏息 / 连击倍率 —— 手感信息要一眼看到 */
+#viewShooter .sh-gunbar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015));
+  border:1px solid var(--sh-line);border-radius:12px;padding:8px 11px;
+}
+#viewShooter .sh-gun{display:flex;align-items:center;gap:7px;min-width:0}
+#viewShooter .sh-gun .art{font-size:17px}
+#viewShooter .sh-gun b{font-size:12.5px;font-weight:900;letter-spacing:.02em}
+#viewShooter .sh-gun i{font-style:normal;font-size:9.5px;color:var(--sh-dim);letter-spacing:.1em}
+#viewShooter .sh-ammo{display:flex;align-items:center;gap:7px;margin-left:auto}
+#viewShooter .sh-ammo .lab{font-size:9.5px;color:var(--sh-dim);letter-spacing:.12em}
+#viewShooter .sh-pips{display:flex;gap:3px;align-items:center}
+#viewShooter .sh-pip{
+  width:5px;height:15px;border-radius:2px;background:var(--sh-amber);
+  box-shadow:0 0 8px rgba(255,196,92,.55);transition:.12s;
+}
+#viewShooter .sh-pip.spent{background:rgba(255,255,255,.14);box-shadow:none}
+#viewShooter .sh-pip.last{background:#fff}
+#viewShooter .sh-meter{flex:0 0 92px;display:flex;flex-direction:column;gap:3px}
+#viewShooter .sh-meter .k{font-size:9px;color:var(--sh-dim);letter-spacing:.1em;display:flex;justify-content:space-between}
+#viewShooter .sh-track{height:6px;border-radius:4px;background:rgba(255,255,255,.09);overflow:hidden}
+#viewShooter .sh-track i{display:block;height:100%;border-radius:4px;transition:width .08s linear}
+#viewShooter .sh-track.reload i{background:linear-gradient(90deg,#ffb45c,#ff7a45)}
+#viewShooter .sh-track.breath i{background:linear-gradient(90deg,var(--sh-cyan),#4a9dff)}
+#viewShooter .sh-track.breath.low i{background:linear-gradient(90deg,#ff7a72,#ff4d4d)}
+
+/* HUD */
+#viewShooter .sh-hud{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+#viewShooter .sh-stat{
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+  border:1px solid var(--sh-line);border-radius:12px;padding:7px 9px;transition:.2s;
+}
+#viewShooter .sh-stat:hover{transform:translateY(-2px);border-color:rgba(160,190,235,.36)}
+#viewShooter .sh-stat .k{font-size:9.5px;color:var(--sh-dim);letter-spacing:.08em;white-space:nowrap}
+#viewShooter .sh-stat .v{font-size:18px;font-weight:900;margin-top:2px;font-variant-numeric:tabular-nums;line-height:1.15}
+#viewShooter .sh-stat.time .v{color:var(--sh-cyan)}
+#viewShooter .sh-stat.time.urgent{border-color:rgba(255,90,82,.6);background:linear-gradient(180deg,rgba(255,90,82,.2),rgba(255,90,82,.05));animation:shPulse .9s ease-in-out infinite}
+#viewShooter .sh-stat.combo .v{color:var(--sh-dim)}
+#viewShooter .sh-stat.combo.hot .v{color:var(--sh-amber);text-shadow:0 0 16px rgba(255,196,92,.55)}
+#viewShooter .sh-stat.down .v{color:var(--sh-green)}
+@keyframes shPulse{0%,100%{opacity:1}50%{opacity:.62}}
+
+/* 关卡条 */
+#viewShooter .sh-levelbar{
+  display:flex;align-items:center;gap:9px;font-size:11px;color:var(--sh-dim);
+  border:1px dashed var(--sh-line);border-radius:12px;padding:7px 11px;
+}
+#viewShooter .sh-levelbar .lbl{letter-spacing:.16em;font-size:9.5px}
+#viewShooter .sh-levelbar .name{color:var(--sh-ink);font-weight:900;font-size:12.5px;white-space:nowrap}
+#viewShooter .sh-dots{display:flex;gap:4px}
+#viewShooter .sh-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.16)}
+#viewShooter .sh-dot.done{background:var(--sh-green);box-shadow:0 0 8px rgba(92,242,168,.6)}
+#viewShooter .sh-dot.now{background:var(--sh-amber);box-shadow:0 0 9px rgba(255,196,92,.7);transform:scale(1.25)}
+#viewShooter .sh-goal{display:flex;align-items:center;gap:7px;margin-left:auto;min-width:0}
+#viewShooter .sh-goal .track{width:120px;height:7px;border-radius:5px;background:rgba(255,255,255,.09);overflow:hidden}
+#viewShooter .sh-goal .track i{display:block;height:100%;background:linear-gradient(90deg,var(--sh-green),var(--sh-amber));transition:width .18s}
+#viewShooter .sh-goal b{color:var(--sh-ink);font-variant-numeric:tabular-nums;font-weight:900}
+
+/* 舞台 */
+#viewShooter .sh-stage{
+  position:relative;width:100%;max-width:900px;margin:0 auto;
+  border:1px solid var(--sh-line);border-radius:16px;overflow:hidden;
+  background:#05070c;box-shadow:0 24px 60px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);
+}
+#viewShooter #shCanvas{display:block;width:100%;height:auto;touch-action:none;cursor:none}
+#viewShooter .sh-stage.idle #shCanvas{cursor:crosshair}
+#viewShooter .sh-countdown{
+  position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  font-size:clamp(52px,10vw,96px);font-weight:900;color:#fff;pointer-events:none;
+  text-shadow:0 0 40px rgba(255,196,92,.7),0 10px 30px rgba(0,0,0,.8);
+  background:radial-gradient(circle at 50% 50%,rgba(0,0,0,.35),rgba(0,0,0,.7));
+}
+#viewShooter .sh-countdown.show{display:flex;animation:shCount .45s ease-out}
+#viewShooter .sh-countdown.go{color:var(--sh-green)}
+@keyframes shCount{from{transform:scale(1.6);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* 底部说明 */
+#viewShooter .sh-help{
+  display:flex;flex-wrap:wrap;gap:8px 15px;justify-content:center;align-items:center;
+  font-size:11px;color:var(--sh-dim);
+}
+#viewShooter .sh-help button{
+  background:rgba(255,255,255,.05);border:1px solid var(--sh-line);color:var(--sh-ink);
+  border-radius:8px;padding:5px 11px;font-size:11px;cursor:pointer;transition:.18s;
+}
+#viewShooter .sh-help button:hover{background:rgba(255,255,255,.11)}
+
+#viewShooter .sh-toast{
+  position:fixed;left:50%;bottom:82px;transform:translate(-50%,14px);
+  background:linear-gradient(135deg,rgba(26,34,52,.97),rgba(12,17,27,.97));
+  border:1px solid rgba(255,196,92,.45);color:#ffe9c4;
+  border-radius:11px;padding:9px 16px;font-size:12.5px;font-weight:800;
+  opacity:0;pointer-events:none;transition:.22s;z-index:80;box-shadow:0 14px 40px rgba(0,0,0,.6);
+}
+#viewShooter .sh-toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* 覆盖层（fixed 铺满视口） */
+#viewShooter .sh-ov{
+  position:fixed;inset:0;z-index:60;display:none;
+  align-items:center;justify-content:center;padding:18px;cursor:default;
+  background:radial-gradient(circle at 50% 40%,rgba(9,13,22,.76),rgba(3,5,9,.95));
+  backdrop-filter:blur(10px);
+}
+#viewShooter .sh-ov.show{display:flex}
+#viewShooter .sh-panel{
+  width:100%;max-width:520px;max-height:92vh;
+  display:flex;flex-direction:column;
+  background:linear-gradient(168deg,#1c2740,#0a101c 66%);
+  border:1px solid rgba(160,190,235,.26);border-radius:22px;padding:20px 20px 14px;text-align:center;
+  box-shadow:0 30px 80px rgba(0,0,0,.72),inset 0 1px 0 rgba(255,255,255,.08);
+  animation:shPanelIn .34s cubic-bezier(.2,1.2,.35,1);
+}
+/* 面板内滚区：主按钮固定在滚区之外。
+   这是 README 坑 2 的第三次踩坑预防 —— 开始层内容（规则 + 军械库 + 选关）比屏幕高时，
+   如果整块面板一起滚，"进入靶位"按钮会被推到可视区外，玩家根本点不到（冒烟实测过）。 */
+#viewShooter .sh-body{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0 -8px;padding:0 8px}
+#viewShooter .sh-body::-webkit-scrollbar{width:7px}
+#viewShooter .sh-body::-webkit-scrollbar-thumb{background:rgba(160,190,235,.26);border-radius:4px}
+#viewShooter .sh-actions{flex:0 0 auto;border-top:1px solid rgba(160,190,235,.14);margin-top:10px;padding-top:9px}
+#viewShooter .sh-art,#viewShooter .sh-panel h2,#viewShooter .sh-en{flex:0 0 auto}
+@keyframes shPanelIn{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
+#viewShooter .sh-art{font-size:54px;line-height:1.1;display:inline-block;filter:drop-shadow(0 8px 22px rgba(255,150,60,.4))}
+#viewShooter .sh-panel h2{font-size:21px;font-weight:900;letter-spacing:.04em;margin-top:6px}
+#viewShooter .sh-en{font-size:9.5px;letter-spacing:.3em;color:var(--sh-dim);margin-top:4px}
+#viewShooter .sh-lead{font-size:12.5px;line-height:1.8;color:#d5ddef;margin:12px 0 2px}
+#viewShooter .sh-lead b{color:#fff}
+#viewShooter .sh-rules{
+  margin:13px 0 2px;padding:11px;text-align:left;display:flex;flex-direction:column;gap:6px;
+  background:linear-gradient(135deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+  border:1px solid var(--sh-line);border-radius:13px;
+}
+#viewShooter .sh-rule{display:flex;gap:9px;font-size:11.5px;line-height:1.6;color:#ccd7eb}
+#viewShooter .sh-rule i{font-style:normal;flex:0 0 auto;font-size:15px}
+#viewShooter .sh-rule b{color:#fff}
+#viewShooter .sh-brief{display:flex;justify-content:center;gap:16px;font-size:9.5px;color:var(--sh-dim);margin:12px 0 2px;letter-spacing:.1em}
+#viewShooter .sh-brief b{display:block;color:var(--sh-amber);font-size:15px;margin-top:2px;font-variant-numeric:tabular-nums}
+
+/* 军械库 */
+#viewShooter .sh-armory{
+  margin:13px 0 2px;text-align:left;border:1px solid var(--sh-line);border-radius:13px;padding:10px;
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012));
+}
+#viewShooter .sh-armory-head{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--sh-dim);letter-spacing:.1em;margin-bottom:7px}
+#viewShooter .sh-armory-head b{color:var(--sh-amber);font-size:12px;font-variant-numeric:tabular-nums}
+#viewShooter .sh-guns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#viewShooter .sh-gun-btn{
+  background:rgba(255,255,255,.05);border:1px solid var(--sh-line);color:var(--sh-ink);
+  border-radius:11px;padding:8px 6px;cursor:pointer;transition:.16s;display:flex;flex-direction:column;gap:2px;align-items:center;
+}
+#viewShooter .sh-gun-btn:hover{background:rgba(255,255,255,.11);transform:translateY(-1px)}
+#viewShooter .sh-gun-btn:active{transform:translateY(0) scale(.96)}
+#viewShooter .sh-gun-btn .a{font-size:19px;line-height:1.2}
+#viewShooter .sh-gun-btn .n{font-size:11px;font-weight:800}
+#viewShooter .sh-gun-btn .s{font-size:9px;color:var(--sh-dim);font-variant-numeric:tabular-nums}
+#viewShooter .sh-gun-btn.sel{border-color:rgba(255,196,92,.85);background:rgba(255,196,92,.16);box-shadow:0 0 16px rgba(255,196,92,.22)}
+#viewShooter .sh-gun-btn.sel .s{color:#ffe9c0}
+#viewShooter .sh-gun-btn.buy{border-color:rgba(92,242,168,.5)}
+#viewShooter .sh-gun-btn.lock{opacity:.46;cursor:not-allowed}
+#viewShooter .sh-armory-msg{font-size:10.5px;color:var(--sh-dim);margin-top:7px;line-height:1.5;min-height:16px}
+#viewShooter .sh-choose{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:11px 0 2px}
+#viewShooter .sh-choose .lab{font-size:9.5px;color:var(--sh-dim);letter-spacing:.1em;margin-right:2px}
+#viewShooter .sh-chip{
+  background:rgba(255,255,255,.05);border:1px solid var(--sh-line);color:var(--sh-ink);
+  border-radius:9px;padding:5px 9px;font-size:11px;cursor:pointer;transition:.16s;font-weight:700;
+}
+#viewShooter .sh-chip:hover{background:rgba(255,255,255,.11)}
+#viewShooter .sh-chip.sel{border-color:rgba(255,196,92,.85);background:rgba(255,196,92,.16);color:#ffe9c0}
+#viewShooter .sh-chip.lock{opacity:.4;cursor:not-allowed}
+
+#viewShooter .sh-btn{
+  display:block;width:100%;margin-top:9px;padding:13px;border:0;border-radius:13px;
+  font-size:15px;font-weight:900;letter-spacing:.06em;cursor:pointer;transition:.18s;
+  background:linear-gradient(135deg,#ffcb63,#ff7a45);color:#2a1206;
+  box-shadow:0 12px 30px rgba(255,120,90,.34),inset 0 1px 0 rgba(255,255,255,.35);
+}
+#viewShooter .sh-btn:hover{filter:brightness(1.07);transform:translateY(-2px)}
+#viewShooter .sh-btn:active{transform:translateY(0) scale(.985)}
+#viewShooter .sh-btn.ghost{background:rgba(255,255,255,.05);color:var(--sh-ink);border:1px solid var(--sh-line);box-shadow:none;font-weight:700}
+#viewShooter .sh-btn.ghost:hover{background:rgba(255,255,255,.11)}
+#viewShooter .sh-hint{font-size:11px;color:var(--sh-dim);line-height:1.8;margin-top:13px}
+#viewShooter .sh-hint kbd{background:rgba(255,255,255,.09);border:1px solid var(--sh-line);border-radius:5px;padding:1px 5px;font-size:10.5px;font-family:inherit}
+#viewShooter .sh-result{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:15px 0 4px}
+#viewShooter .sh-rcell{
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+  border:1px solid var(--sh-line);border-radius:11px;padding:8px 6px;transition:.2s;
+}
+#viewShooter .sh-rcell .k{font-size:9px;color:var(--sh-dim);letter-spacing:.05em;white-space:nowrap}
+#viewShooter .sh-rcell .v{font-size:15.5px;font-weight:900;margin-top:2px;font-variant-numeric:tabular-nums}
+#viewShooter .sh-rcell.good .v{color:var(--sh-green)}
+#viewShooter .sh-rcell.bad .v{color:var(--sh-red)}
+#viewShooter .sh-grade{
+  font-size:34px;font-weight:900;line-height:1;margin-top:2px;
+  background:linear-gradient(135deg,#ffe9a8,#ff9d4d);-webkit-background-clip:text;background-clip:text;color:transparent;
+}
+#viewShooter .sh-record{display:none;font-size:13px;font-weight:900;color:var(--sh-amber);margin:10px 0 2px}
+#viewShooter .sh-record.show{display:block;animation:shPop .6s cubic-bezier(.2,1.6,.4,1)}
+@keyframes shPop{0%{opacity:0;transform:scale(.5)}60%{transform:scale(1.14)}100%{opacity:1;transform:scale(1)}}
+#viewShooter .sh-why{
+  font-size:12px;line-height:1.7;text-align:left;border-radius:10px;padding:9px 11px;margin:11px 0 2px;
+  background:rgba(255,255,255,.05);border:1px solid var(--sh-line);color:#dfe7f7;
+}
+#viewShooter .sh-why.good{border-color:rgba(92,242,168,.45);color:#c9ffe4;background:linear-gradient(135deg,rgba(92,242,168,.14),rgba(92,242,168,.04))}
+#viewShooter .sh-why.bad{border-color:rgba(255,90,82,.45);color:#ffd8d4;background:linear-gradient(135deg,rgba(255,90,82,.14),rgba(255,90,82,.04))}
+
+@media (max-width:760px){
+  #viewShooter .sh-hud{grid-template-columns:repeat(3,1fr)}
+  #viewShooter .sh-result{grid-template-columns:repeat(2,1fr)}
+  #viewShooter .sh-guns{grid-template-columns:repeat(2,1fr)}
+  #viewShooter .sh-ammo{margin-left:0}
+  #viewShooter .sh-stage{border-radius:12px}
+  #viewShooter .sh-toast{bottom:70px}
+  #viewShooter .sh-panel{padding:19px 15px}
+  #viewShooter .sh-art{font-size:44px}
 }

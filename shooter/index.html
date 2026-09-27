@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>靶场神枪手 · 小游戏乐园</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-app="SHOOTER_APP" data-game="shooter" data-home="../">
+<div class="view active" id="viewShooter">
+
+
+<div class="sh-app">
+
+  <header class="sh-titlebar">
+    <button class="sh-home" type="button" data-back-home aria-label="返回小游戏乐园">← 乐园</button>
+    <div class="sh-brand">
+      <div class="sh-mark" aria-hidden="true"></div>
+      <div>
+        <h1>靶场神枪手</h1>
+        <p>RANGE MARKSMAN · 打靶场</p>
+      </div>
+    </div>
+    <button class="sh-icon-btn" id="shBtnSound" type="button" title="音效开关 (M)" aria-label="音效开关">🔊</button>
+  </header>
+
+  <div class="sh-gunbar">
+    <div class="sh-gun">
+      <span class="art" id="shGunArt" aria-hidden="true">🔫</span>
+      <div>
+        <b id="shGunName">制式手枪</b> <i id="shGunEn">M1911</i>
+      </div>
+    </div>
+    <div class="sh-meter">
+      <div class="k"><span>换弹</span><span id="shReloadTxt">—</span></div>
+      <div class="sh-track reload"><i id="shReloadFill" style="width:0%"></i></div>
+    </div>
+    <div class="sh-meter">
+      <div class="k"><span>屏息</span><span id="shBreathTxt">—</span></div>
+      <div class="sh-track breath" id="shBreathTrack"><i id="shBreathFill" style="width:100%"></i></div>
+    </div>
+    <div class="sh-ammo">
+      <span class="lab">弹匣</span>
+      <span class="sh-pips" id="shAmmoPips" role="img" aria-label="剩余弹药"></span>
+    </div>
+  </div>
+
+  <div class="sh-hud">
+    <div class="sh-stat down"><div class="k">击落</div><div class="v" id="shDowns">0 / 0</div></div>
+    <div class="sh-stat"><div class="k">得分</div><div class="v" id="shScore">0</div></div>
+    <div class="sh-stat combo"><div class="k">连击</div><div class="v" id="shCombo">×1</div></div>
+    <div class="sh-stat time"><div class="k">剩余时间</div><div class="v" id="shTime">0</div></div>
+    <div class="sh-stat"><div class="k">命中率</div><div class="v" id="shAcc">—</div></div>
+    <div class="sh-stat"><div class="k">最高分</div><div class="v" id="shBest">0</div></div>
+  </div>
+
+  <div class="sh-levelbar">
+    <span class="lbl">关口</span>
+    <span class="name" id="shLevelName">1 · 新手靶场</span>
+    <span class="sh-dots" id="shDots" aria-label="关口进度"></span>
+    <span class="sh-goal">
+      <span>进度</span>
+      <span class="track"><i id="shProgFill" style="width:0%"></i></span>
+      <b id="shProgTxt">0/0</b>
+    </span>
+  </div>
+
+  <div class="sh-stage idle" id="shStage">
+    <canvas id="shCanvas" width="900" height="600" aria-label="游戏画面：瞄准并击落靶子，别打炸雷靶"></canvas>
+    <div class="sh-countdown" id="shCountdown"></div>
+    <div class="sh-toast" id="shToast"></div>
+
+    <!-- 开始界面 -->
+    <div class="sh-ov show" id="shOvStart">
+      <div class="sh-panel">
+        <div class="sh-art" aria-hidden="true">🎯</div>
+        <h2>靶场神枪手</h2>
+        <div class="sh-en">RANGE MARKSMAN</div>
+        <div class="sh-body">
+        <p class="sh-lead">夜里的外射场，靶子从挡板后升起、横穿、抛出。<br>
+          <b>打中哪个位置算哪个环数</b> —— 正中十倍分。<b>在时限内击落够数</b>就算过关。</p>
+        <div class="sh-brief">
+          <span>最高分 <b id="shStartBest">0</b></span>
+          <span>金币 <b id="shStartCoins">0</b></span>
+          <span>已到 <b id="shStartLevel">1 关</b></span>
+        </div>
+        <div class="sh-armory">
+          <div class="sh-armory-head"><span>军械库 · 选一把枪</span><b id="shCoinsTop">💰 0</b></div>
+          <div class="sh-guns" id="shArmory"></div>
+          <div class="sh-armory-msg" id="shArmoryMsg">手枪什么都能打；狙击一枪两倍分但要等准星回落。</div>
+        </div>
+        <div class="sh-choose" id="shChooserStart"></div>
+        <div class="sh-rules">
+          <div class="sh-rule"><i>🎯</i><span><b>弹着点离靶心越近分越高</b>：内十 20 · 10 · 8 · 6 · 4 环</span></div>
+          <div class="sh-rule"><i>🔥</i><span>命中续<b>连击</b>（×2 → ×8）；<b>打空一发就断</b>，宁可慢一拍</span></div>
+          <div class="sh-rule"><i>💣</i><span><b>炸雷靶不许打</b>：打中倒扣 120 分还扣 2.2 秒 —— 放着不管它会自己飘走</span></div>
+          <div class="sh-rule"><i>🧘</i><span>按住<b>右键 / Shift 屏息</b>收准星，气量有限；<b>R 手动换弹</b>比自动快</span></div>
+          <div class="sh-rule"><i>🔫</i><span>连射会让<b>准星飘</b>：越打越偏，等它回落再开枪才值环数</span></div>
+          <div class="sh-rule"><i>💰</i><span>金靶给金币（跨局累计），<b>军械库</b>换枪：射速 / 弹匣 / 倍率各不同</span></div>
+        </div>
+        </div><!-- /sh-body -->
+        <div class="sh-actions">
+        <button class="sh-btn" id="shBtnStart" type="button" data-primary-action>进入靶位</button>
+        <button class="sh-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+        <div class="sh-hint">
+          桌面端<b>移动鼠标瞄准</b> · <b>左键开枪（可按住连射）</b> · <b>右键按住屏息</b><br>
+          移动端<b>按住拖动瞄准并开火</b> · <kbd>R</kbd> 换弹 · <kbd>P</kbd>/<kbd>Esc</kbd> 暂停 · <kbd>M</kbd> 音效 · <kbd>1</kbd>~<kbd>6</kbd> 换枪
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 暂停界面 -->
+    <div class="sh-ov" id="shOvPause">
+      <div class="sh-panel">
+        <div class="sh-art" aria-hidden="true">☕</div>
+        <h2>靶位暂停</h2>
+        <div class="sh-en">RANGE HOT — CEASE FIRE</div>
+        <p class="sh-lead">靶子停在原地，计时也停了 —— 场上还剩 <b id="shPauseLive">0</b> 个靶。</p>
+        <button class="sh-btn" id="shBtnResume" type="button" data-primary-action>继续射击</button>
+        <button class="sh-btn ghost" id="shBtnQuit" type="button">收工结算（按当前成绩）</button>
+        <button class="sh-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+      </div>
+    </div>
+
+    <!-- 结算界面 -->
+    <div class="sh-ov" id="shOvOver">
+      <div class="sh-panel">
+        <div class="sh-art" id="shRArt" aria-hidden="true">🏁</div>
+        <h2 id="shRTitle">过关！</h2>
+        <div class="sh-en" id="shREn">LEVEL CLEAR</div>
+        <div class="sh-grade" id="shRGrade">S</div>
+        <div class="sh-body">
+        <div class="sh-why" id="shRWhy"></div>
+        <div class="sh-result">
+          <div class="sh-rcell"><div class="k">本局得分</div><div class="v" id="shRScore">0</div></div>
+          <div class="sh-rcell"><div class="k">最高分</div><div class="v" id="shRBest">0</div></div>
+          <div class="sh-rcell"><div class="k">关口</div><div class="v" id="shRLevel">1</div></div>
+          <div class="sh-rcell good"><div class="k">击落</div><div class="v" id="shRDowns">0</div></div>
+          <div class="sh-rcell"><div class="k">命中率</div><div class="v" id="shRAcc">0%</div></div>
+          <div class="sh-rcell"><div class="k">内十</div><div class="v" id="shRBulls">0</div></div>
+          <div class="sh-rcell"><div class="k">最高连击</div><div class="v" id="shRStreak">0</div></div>
+          <div class="sh-rcell bad"><div class="k">误炸</div><div class="v" id="shRBombs">0</div></div>
+          <div class="sh-rcell"><div class="k">漏靶</div><div class="v" id="shRExpired">0</div></div>
+          <div class="sh-rcell"><div class="k">击发</div><div class="v" id="shRFired">0</div></div>
+          <div class="sh-rcell"><div class="k">通关奖励</div><div class="v" id="shRClear">0</div></div>
+          <div class="sh-rcell"><div class="k">剩余时间</div><div class="v" id="shRTime">0</div></div>
+        </div>
+        <div class="sh-brief"><span>本局金币 <b id="shRCoins">0</b></span><span>累计金币 <b id="shRCoinsTotal">0</b></span></div>
+        <div class="sh-record" id="shRRecord">🎉 新纪录！</div>
+        <div class="sh-choose" id="shChooserOver"></div>
+        </div><!-- /sh-body -->
+        <div class="sh-actions">
+        <button class="sh-btn" id="shBtnNext" type="button" data-primary-action>进入下一关</button>
+        <button class="sh-btn ghost" id="shBtnRetry" type="button">重打本关</button>
+        <button class="sh-btn ghost" type="button" data-back-home>返回小游戏乐园</button>
+        <div class="sh-hint" id="shRTip">提示：连击倍率比环数更值钱 —— ×8 下一个 4 环也胜过 ×1 的 10 环。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sh-help">
+    <span>🖱️ 移动瞄准 · 左键开枪 · 右键屏息</span><span>🎯 打得越正分越高</span>
+    <span>💣 炸雷靶别碰</span><span>🔥 打空会断连击</span><span>⌨️ R 换弹 · P 暂停</span>
+    <span><button type="button" data-back-home>返回小游戏乐园</button></span>
+  </div>
+
+</div>
+</div>
+<script src="../assets/shooter-data.js"></script>
+<script src="../assets/shooter-core.js"></script>
+<script src="../assets/shooter.js"></script>
+<script src="../assets/boot.js"></script>
+</body>
+</html>

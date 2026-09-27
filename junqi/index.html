@@ -25,8 +25,24 @@
     <button class="jq-icon-btn" id="jqBtnSound" type="button" title="音效开关 (M)" aria-label="音效开关">🔊</button>
   </header>
 
+  <div class="jq-turnbar" id="jqTurnBar">
+    <i class="jq-turn-lamp" aria-hidden="true"></i>
+    <b id="jqTurnText">待命</b>
+    <span class="sub" id="jqTurnSub"></span>
+    <div class="jq-mat">
+      <div class="jq-mat-bar" role="img" aria-label="红蓝双方兵力对比">
+        <i class="red" id="jqMatRed" style="width:50%"></i>
+        <i class="blue" id="jqMatBlue" style="width:50%"></i>
+      </div>
+      <div class="jq-mat-txt">
+        <span class="r" id="jqMatTxtR">红方 25 子</span>
+        <span class="b" id="jqMatTxtB">蓝方 25 子</span>
+      </div>
+    </div>
+  </div>
+
   <div class="jq-hud">
-    <div class="jq-stat"><div class="k">战况</div><div class="v" id="jqPhase">待命</div></div>
+    <div class="jq-stat kill"><div class="k">我方战果</div><div class="v" id="jqKill">0</div></div>
     <div class="jq-stat turn"><div class="k">轮到</div><div class="v" id="jqTurn">—</div></div>
     <div class="jq-stat a0"><div class="k">红方兵力</div><div class="v" id="jqAlive0">25 子</div></div>
     <div class="jq-stat a1"><div class="k">蓝方兵力</div><div class="v" id="jqAlive1">25 子</div></div>
@@ -44,7 +60,9 @@
 
   <div class="jq-main">
     <div class="jq-boardwrap">
+      <div class="jq-terrace foe"><i></i>蓝方阵地 · 电脑自动指挥</div>
       <div class="jq-board" id="jqBoard" aria-label="军棋棋盘"></div>
+      <div class="jq-terrace own"><i></i>红方阵地 · 由你指挥</div>
 
       <div class="jq-deploy" id="jqDeploy">
         <div class="tip">布阵阶段：点两枚红方的子<b>交换位置</b>。军旗只能在大本营，地雷只能压后三行，炸弹不进大本营行。</div>
@@ -60,6 +78,13 @@
       </div>
       <div class="jq-log" id="jqLog" aria-live="polite" aria-label="战报"></div>
       <div class="jq-hintbox" id="jqHint">点红方的子选中，亮起来的就是合法落点。</div>
+      <div class="jq-legend" aria-label="棋盘图例">
+        <span><b class="lb-st"></b>兵站</span>
+        <span><b class="lb-camp"></b>行营 · 不可被吃</span>
+        <span><b class="lb-hq"></b>大本营 · 一进不出</span>
+        <span><b class="lb-rail"></b>铁路 · 直行任意格</span>
+        <span>⚑ 军旗</span><span>💣 炸弹</span><span>⛏ 工兵挖雷</span>
+      </div>
     </aside>
   </div>
 

@@ -23,7 +23,11 @@ window.JUNQI_DATA = (function () {
   'use strict';
 
   var ROWS = 12, COLS = 5;
-  var UNIT = 100;                    // 相邻两点的图上距离（viewBox 单位）
+  /* SECTION: 图上间距
+     横向比纵向宽一点（124 : 96）—— 5 列 × 12 行的棋盘如果按正方格画会瘦长成一根柱子，
+     实体军棋盘的格距本来也是横向更疏。判定只看拓扑，改这两个数不影响规则。 */
+  var UNIT_X = 124, UNIT_Y = 96;
+  var UNIT = UNIT_X;
 
   /* SECTION: pieces
      rank 是"比大小"的等级；bomb/mine/flag 走特例，不参与比较。
@@ -86,7 +90,7 @@ window.JUNQI_DATA = (function () {
         nodes.push({
           id: r * COLS + c, r: r, c: c, side: side, local: i, kind: kind,
           rail: kind === 'station' && isRailLocal(i, c),
-          x: c * UNIT, y: r * UNIT,
+          x: c * UNIT_X, y: r * UNIT_Y,
           /* 大本营唯一的入口点（供"守门"判定与 AI 护旗用） */
           hqEntry: hqSet[key] ? rowOf(side, 1) * COLS + c : -1,
           /* 大本营编号（军旗只能放这儿） */
@@ -101,6 +105,27 @@ window.JUNQI_DATA = (function () {
   nodes.forEach(function (n) { BY_ID[n.id] = n; });
   var BY_RC = {};
   nodes.forEach(function (n) { BY_RC[n.r + ',' + n.c] = n; });
+
+  /* SECTION: 屏幕坐标 sx/sy
+     逻辑坐标 x/y 永远是"列向右、行向下"；渲染只读 sx/sy。
+     宽屏时把棋盘横过来（蓝方在左、红方在右），5 列 × 12 行的竖条
+     就变成铺满屏幕的横幅战场 —— 只换坐标，拓扑与判定一律不动。 */
+  var LAND = false;
+  function setOrient(land) {
+    LAND = !!land;
+    nodes.forEach(function (n) {
+      n.sx = LAND ? n.y : n.x;
+      n.sy = LAND ? n.x : n.y;
+    });
+    return LAND;
+  }
+  function orient() { return LAND; }
+  setOrient(false);
+  /* 棋盘在屏幕上的净跨度（不含留白） */
+  function gridBox() {
+    var gw = (COLS - 1) * UNIT_X, gh = (ROWS - 1) * UNIT_Y;
+    return LAND ? { w: gh, h: gw } : { w: gw, h: gh };
+  }
 
   function at(r, c) { return BY_RC[r + ',' + c] || null; }
 
@@ -293,7 +318,7 @@ window.JUNQI_DATA = (function () {
   })();
 
   return {
-    ROWS: ROWS, COLS: COLS, UNIT: UNIT,
+    ROWS: ROWS, COLS: COLS, UNIT: UNIT, UNIT_X: UNIT_X, UNIT_Y: UNIT_Y,
     PIECES: PIECES, BY_KIND: BY_KIND, KIND_N: KIND_N,
     MASK_ALL: MASK_ALL, MASK_MOVABLE: MASK_MOVABLE,
     MASK_MINE: MASK_MINE, MASK_FLAG: MASK_FLAG, MASK_BOMB: MASK_BOMB, MASK_ENGINEER: MASK_ENGINEER,
@@ -301,6 +326,7 @@ window.JUNQI_DATA = (function () {
     NODES: nodes, N: nodes.length,
     EDGES: edges, ADJ: adj2, RAIL_STEP: railStep,
     at: at, localRow: localRow, rowOf: rowOf, advOf: advOf,
+    setOrient: setOrient, orient: orient, gridBox: gridBox,
     CAMPS: nodes.filter(function (n) { return n.kind === 'camp'; }).map(function (n) { return n.id; }),
     HQS: nodes.filter(function (n) { return n.kind === 'hq'; }).map(function (n) { return n.id; }),
     STATIONS: nodes.filter(function (n) { return n.kind !== 'camp'; }).map(function (n) { return n.id; }),
