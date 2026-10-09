@@ -114,6 +114,22 @@ export const GAMES = [
       'assets/shooter.js',
       'assets/boot.js'
     ]
+  },
+  {
+    id: 'xiangqi',
+    dir: 'xiangqi',
+    title: '象棋开局教学 · 小游戏乐园',
+    app: 'XIANGQI_APP',
+    bodyAttrs: ' data-game="xiangqi" data-home="../"',
+    /* 三层结构：规则引擎 + 开局库 + Canvas 渲染 + 界面主控。
+       引擎与开局库是纯逻辑/纯数据，tools/test-xiangqi-core.mjs 直接 require 它们跑断言。 */
+    scripts: [
+      'assets/xiangqi-engine.js',
+      'assets/xiangqi-openings.js',
+      'assets/xiangqi-board.js',
+      'assets/xiangqi.js',
+      'assets/boot.js'
+    ]
   }
 ];
 

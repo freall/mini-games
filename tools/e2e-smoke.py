@@ -16,7 +16,7 @@ overflow:hidden 裁剪、开始按钮不可见也点不到」的 P0 —— 静�
 用法：python tools/e2e-smoke.py
       python tools/e2e-smoke.py --url https://freall.github.io/mini-games
       python tools/e2e-smoke.py --single dist/小游戏乐园.html
-覆盖：门户导航 → 六款游戏各自开局、玩法关键判定、结算落盘、门户成绩回显、窄屏可点性，
+覆盖：门户导航 → 七款游戏各自开局、玩法关键判定、结算落盘、门户成绩回显、窄屏可点性，
      以及「控制台/页面零报错」硬断言。
 产物：tools/_shots/*.png 截图（已 gitignore）；终端打印断言汇总，失败非零退出
 """
@@ -95,7 +95,7 @@ def run_single(path):
         pg.goto(url, wait_until='load')
         pg.wait_for_timeout(1200)
         results.append(('单文件 标题', pg.title() == '小游戏乐园 · 迷你游戏合集', pg.title()))
-        results.append(('单文件 门户 6 张卡', pg.locator('.pt-card').count() == 6,
+        results.append(('单文件 门户 7 张卡', pg.locator('.pt-card').count() == 7,
                         'cards=%d' % pg.locator('.pt-card').count()))
         results.append(('单文件 页内路由可用', pg.evaluate("() => !!window.APP_ROUTER"), ''))
 
@@ -177,6 +177,24 @@ def run_single(path):
         results.append(('单文件 军棋可电脑应手（AI 真的走了子）',
                         r['plies'] >= 2 and r['logRows'] >= 2,
                         'plies=%d log=%d' % (r['plies'], r['logRows'])))
+        pg.evaluate("() => window.APP_ROUTER.go('portal')")
+        pg.wait_for_timeout(500)
+
+        # ---- 单文件版的象棋开局教学（第七款：页内路由，与多页面版是两条代码路径） ----
+        pg.evaluate("() => window.APP_ROUTER.go('xiangqi')")
+        pg.wait_for_timeout(1000)
+        vis = pg.evaluate("() => getComputedStyle(document.getElementById('viewXiangqi')).display")
+        results.append(('单文件 切到象棋视图', vis == 'flex', 'display=%s' % vis))
+        results.append(('单文件 象棋模块已挂载',
+                        pg.evaluate("() => !!(window.XIANGQI_APP && window.XIANGQI_APP.stats().opening)"), ''))
+        results.append(('单文件 象棋开局库渲染出 10 项',
+                        pg.locator('#xqOpeningList .xq-op-item').count() == 10,
+                        'items=%d' % pg.locator('#xqOpeningList .xq-op-item').count()))
+        st = pg.evaluate("() => window.XIANGQI_APP._debugPlayAll()")
+        results.append(('单文件 象棋可逐手走完整局',
+                        st['index'] == st['moves'] - 1 and st['moves'] == 6,
+                        'index=%s moves=%s' % (st['index'], st['moves'])))
+        pg.screenshot(path=os.path.join(SHOTS, 'single-xiangqi.png'))
         pg.evaluate("() => window.APP_ROUTER.go('portal')")
         pg.wait_for_timeout(500)
 
@@ -275,9 +293,9 @@ def main():
         cover = pg.locator('#ptM3Cover .pt-cover-cell').count()
         pg.screenshot(path=os.path.join(SHOTS, 'portal.png'), full_page=True)
         results.append(('门户标题', pg.title() == '小游戏乐园 · 迷你游戏合集', pg.title()))
-        results.append(('门户卡片数 = 6', cards == 6, 'cards=%d' % cards))
+        results.append(('门户卡片数 = 7', cards == 7, 'cards=%d' % cards))
         results.append(('门户封面图标已渲染', cover >= 6, 'cells=%d' % cover))
-        for i, want in enumerate(['sushi', 'match3', 'morse', 'manhole', 'junqi', 'shooter']):
+        for i, want in enumerate(['sushi', 'match3', 'morse', 'manhole', 'junqi', 'shooter', 'xiangqi']):
             pg.goto(base + '/', wait_until='load')
             pg.wait_for_timeout(400)
             pg.locator('.pt-card').nth(i).click()
@@ -1152,6 +1170,212 @@ def main():
           requestAnimationFrame(tick); })""")
         results.append(('靶场页 满场时帧率可用（≥ 30fps）', fps['fps'] >= 30, str(fps)))
         pg.screenshot(path=os.path.join(SHOTS, 'shooter-l10.png'))
+        pg.close()
+
+        # ---- 象棋开局教学页（第七款：Canvas 棋盘 + 中文记谱讲解 + 练习模式）----
+        # 这一节重点验四件事：
+        #   ① 视图里的 canvas 真的画出了东西（木纹棋盘 + 32 枚棋子）；
+        #   ② 逐手演示能推进且讲解文字里不出现 undefined/NaN（源项目踩过的坑）；
+        #   ③ 练习模式：走对了推进、走错了给提示但不推进；
+        #   ④ 走通一个开局 → 最高分与"已走通"写进存档 → 门户卡片回显。
+        pg = new_page()
+        pg.goto(base + '/xiangqi/', wait_until='load')
+        pg.wait_for_timeout(1100)
+        results.append(('象棋页 挂载 API 可用',
+                        pg.evaluate("!!(window.XIANGQI_APP && window.XIANGQI_APP.mount"
+                                    " && window.XIANGQI_APP.activate && window.XIANGQI_APP.stats)"), ''))
+        results.append(('象棋页 开局库渲染 10 项',
+                        pg.locator('#xqOpeningList .xq-op-item').count() == 10,
+                        'items=%d' % pg.locator('#xqOpeningList .xq-op-item').count()))
+        results.append(('象棋页 左栏分组标题齐（红方先手 / 黑方应对）',
+                        pg.locator('#xqOpeningList .xq-group-title').count() == 2,
+                        'groups=%d' % pg.locator('#xqOpeningList .xq-group-title').count()))
+        px = pg.evaluate("""() => { const c = document.getElementById('xqBoard'); const g = c.getContext('2d');
+          const d = g.getImageData(0, 0, c.width, c.height).data; let n = 0;
+          for (let i = 3; i < d.length; i += 200) { if (d[i] > 0) n++; } return n; }""")
+        results.append(('象棋页 canvas 已绘制棋盘与棋子', px > 500, 'nonempty=%d' % px))
+        # 棋盘可点性：canvas 是否真在视口里、能接住点击（历史上最容易踩"被裁掉"的坑）
+        hit = pg.evaluate(HITTABLE, 'xqBoard')
+        results.append(('象棋页 棋盘可点（未被容器裁掉）', hit == 'OK', hit))
+
+        # 逐手演示：同步走完整局（跳过动画帧），并核对讲解文字
+        pg.evaluate("() => window.XIANGQI_APP._debugStep(-1)")
+        st0 = pg.evaluate("() => window.XIANGQI_APP.stats()")
+        pg.evaluate("() => window.XIANGQI_APP._debugStep(0)")
+        note0 = pg.evaluate("() => window.XIANGQI_APP._debugNoteText()")
+        results.append(('象棋页 走一手后讲解给出棋谱与记谱拆解',
+                        '炮二平五' in note0 and '为什么这么记' in note0 and '起点纵线' in note0,
+                        note0[:60]))
+        results.append(('象棋页 讲解文字不含 undefined/NaN',
+                        ('undefined' not in note0) and ('NaN' not in note0), note0[:60]))
+        # "将军提示"这条 UI 反馈不能靠开局库碰运气（10 个开局都是平稳布局定型，
+        # 主变里根本不叫将）—— 用引擎在一个能立刻将军的局面上现场找着法来验机制。
+        chk = pg.evaluate("""() => {
+          const A = window.XIANGQI_APP, E = window.XQEngine;
+          /* 红车 (9,3) + 红帅 (9,5) vs 黑将 (0,4)：红方有立刻将军的着法 */
+          const fen = '4k4/9/9/9/9/9/9/9/9/3R1K3 w';
+          const board = E.parseFen(fen).board;
+          let found = null;
+          for (const m of E.legalMoves(board, 'r')) {
+            const nb = E.boardApply(board, m);
+            if (E.isInCheck(nb, 'b')) { found = { mv: m, nb: nb }; break; }
+          }
+          if (!found) return { ok: false, reason: '构造局面里没有将军着（意料之外）' };
+          /* 借用真实渲染路径：临时把主变换成这一手，走完读讲解，再还原 */
+          const st = A._state();
+          const step = {
+            boardBefore: board, boardAfter: found.nb, mv: found.mv,
+            text: E.moveToChinese(board, found.mv).text, note: '', side: 'r', no: 1, check: true
+          };
+          const saved = { line: st.line, index: st.index };
+          st.line = [step]; st.index = -1;
+          A._debugStep(0);
+          const note = A._debugNoteText();
+          st.line = saved.line; st.index = saved.index;
+          A._debugStep(-1);
+          return { ok: true, text: step.text, said: note.indexOf('将军') >= 0, note: note.slice(0, 80) };
+        }""")
+        results.append(('象棋页 走出一手真将军时讲解放将军提示',
+                        chk.get('ok') and chk.get('said'),
+                        '%s :: %s' % (chk.get('text'), chk.get('note'))))
+        # 反向：库内主变全是平稳着法，逐手确认没有"误报将军"
+        false_pos = pg.evaluate("""() => {
+          const A = window.XIANGQI_APP, G = window.XQOpenings;
+          let bad = [];
+          G.OPENINGS.forEach(function (op) {
+            A._debugSelect(op.id);
+            A._debugStep(-1);
+            const n = A.stats().moves;
+            for (let i = 0; i < n; i++) {
+              A._debugStep(i);
+              if (A._debugNoteText().indexOf('将军') >= 0) bad.push(op.id + '#' + i);
+            }
+          });
+          return bad;
+        }""")
+        results.append(('象棋页 开局库主变无误报将军提示',
+                        len(false_pos) == 0, 'bad=%s' % false_pos))
+        stAll = pg.evaluate("() => window.XIANGQI_APP._debugPlayAll()")
+        results.append(('象棋页 可逐手走完整个开局（6 手）',
+                        stAll['index'] == stAll['moves'] - 1 and stAll['moves'] == 6,
+                        'index=%s moves=%s' % (stAll['index'], stAll['moves'])))
+        # 上一段全库扫描把状态停在最后一个开局上了，这里显式回到中炮再验末手讲解
+        pg.evaluate("() => window.XIANGQI_APP._debugSelect('zhongpao')")
+        pg.evaluate("() => window.XIANGQI_APP._debugPlayAll()")
+        pg.wait_for_timeout(200)
+        last_note = pg.evaluate("() => window.XIANGQI_APP._debugNoteText()")
+        results.append(('象棋页 末手讲解含记谱与拆解（无 undefined/NaN）',
+                        ('马2进3' in last_note) and ('为什么这么记' in last_note)
+                        and ('undefined' not in last_note) and ('NaN' not in last_note),
+                        last_note[:60]))
+        pg.screenshot(path=os.path.join(SHOTS, 'xiangqi-demo.png'), full_page=True)
+
+        # 换开局：黑方应对体系那一侧也要能选中
+        pg.locator('#xqOpeningList .xq-op-item[data-id="pingfengma"]').click()
+        pg.wait_for_timeout(500)
+        sw = pg.evaluate("""() => ({ id: window.XIANGQI_APP.stats().opening,
+          title: document.getElementById('xqOpTitle').textContent,
+          moves: document.querySelectorAll('#xqMoveList .xq-mv-row').length })""")
+        results.append(('象棋页 可切换到黑方应对开局（标题/棋谱同步）',
+                        sw['id'] == 'pingfengma' and '屏风马' in sw['title'] and sw['moves'] == 3,
+                        str(sw)))
+
+        # 练习模式：走错 → 给提示且不推进；走对 → 推进
+        pg.goto(base + '/xiangqi/', wait_until='load')
+        pg.wait_for_timeout(900)
+        wrong = pg.evaluate("() => window.XIANGQI_APP._debugPracticeWrong()")
+        results.append(('象棋页 练习模式走错给提示且不推进',
+                        wrong.get('ok') and wrong.get('step') == 0
+                        and '谱着不同' in (wrong.get('note') or ''),
+                        str(wrong)[:140]))
+        fin = pg.evaluate("() => window.XIANGQI_APP._debugPractice()")
+        results.append(('象棋页 练习模式按谱走通一整局并结算',
+                        fin['finished'] is True and fin['best'] > 0 and fin['cleared'] == 1,
+                        'best=%s cleared=%s' % (fin['best'], fin['cleared'])))
+        pg.screenshot(path=os.path.join(SHOTS, 'xiangqi-practice.png'), full_page=True)
+        results.append(('象棋页 成绩写入本地存档端口（xiangqi-best）',
+                        int(pg.evaluate("() => localStorage.getItem('xiangqi-best') || '0'")) > 0, ''))
+
+        # 翻转棋盘：逻辑不变、朝向反转（浅色棋盘最容易看出"画反了"）
+        pg.evaluate("() => window.XIANGQI_APP._debugStep(3)")
+        pg.locator('#xqBtnFlip').click()
+        pg.wait_for_timeout(400)
+        results.append(('象棋页 翻转棋盘后朝向与画面同步',
+                        pg.evaluate("() => window.XIANGQI_APP.stats().orient") == 'b', ''))
+        pg.locator('#xqBtnFlip').click()
+        pg.wait_for_timeout(300)
+
+        # 前进/后退按钮可用性（走到底之后「下一手」该禁用、「播放」该变「重播」）
+        # 注意：练习模式会被写进存档（xiangqi-mode），重载页面会自动回到练习态 ——
+        # 练习态下三个按钮都禁用、播放按钮文案是「练习中」，所以必须先显式退出练习，
+        # 否则会把"练习模式禁用"误判成播放器坏了。
+        pg.goto(base + '/xiangqi/', wait_until='load')
+        pg.wait_for_timeout(900)
+        if pg.evaluate("() => window.XIANGQI_APP.stats().practice"):
+            pg.locator('#xqBtnPractice').click()
+            pg.wait_for_timeout(400)
+        pg.evaluate("() => window.XIANGQI_APP._debugPlayAll()")
+        pg.wait_for_timeout(300)
+        btn = pg.evaluate("""() => ({
+          next: document.getElementById('xqBtnNext').disabled,
+          prev: document.getElementById('xqBtnPrev').disabled,
+          play: document.getElementById('xqBtnPlay').textContent.trim(),
+          practice: window.XIANGQI_APP.stats().practice
+        })""")
+        results.append(('象棋页 走到底后「下一手」禁用、「重播」文案出现',
+                        btn['next'] is True and btn['prev'] is False
+                        and '重播' in btn['play'] and btn['practice'] is False,
+                        str(btn)))
+
+        # 菜单态 Escape 回乐园
+        pg.goto(base + '/xiangqi/', wait_until='load')
+        pg.wait_for_timeout(900)
+        pg.keyboard.press('Escape')
+        pg.wait_for_timeout(1000)
+        results.append(('象棋页 Escape 回乐园', pg.url.rstrip('/') == base, pg.url))
+
+        # 返回乐园按钮
+        pg.goto(base + '/xiangqi/', wait_until='load')
+        pg.wait_for_timeout(900)
+        pg.locator('[data-back-home]').first.click()
+        pg.wait_for_timeout(900)
+        results.append(('象棋页 返回乐园按钮', pg.url.rstrip('/') == base, pg.url))
+
+        # 深链：?opening=<id>&mode=practice 直接进指定开局与模式
+        pg.goto(base + '/xiangqi/?opening=xianrenzhi&mode=practice', wait_until='load')
+        pg.wait_for_timeout(1000)
+        deep = pg.evaluate("() => window.XIANGQI_APP.stats()")
+        results.append(('象棋页 ?opening=&mode= 深链进指定开局与练习模式',
+                        deep['opening'] == 'xianrenzhi' and deep['practice'] is True,
+                        'opening=%s practice=%s' % (deep['opening'], deep['practice'])))
+
+        # 门户回显（多页面门户读的是 site-src/assets/portal-home.js）
+        pg.evaluate("() => { try { localStorage.setItem('xiangqi-best','1680');"
+                    " localStorage.setItem('xiangqi-done','[\"zhongpao\",\"feixiangju\",\"duibing\"]'); }"
+                    " catch(e){} }")
+        pg.goto(base + '/', wait_until='load')
+        pg.wait_for_timeout(800)
+        results.append(('门户 象棋最高分已回显', pg.locator('#ptXqBest').inner_text().strip() == '1,680',
+                        pg.locator('#ptXqBest').inner_text()))
+        results.append(('门户 象棋已走通开局数已回显', '3 / 10' in pg.locator('#ptXqCleared').inner_text(),
+                        pg.locator('#ptXqCleared').inner_text()))
+
+        # 窄屏（手机）：单栏塌陷后棋盘与主按钮仍在视口内、仍可点
+        pg.goto(base + '/xiangqi/', wait_until='load')
+        pg.wait_for_timeout(900)
+        pg.set_viewport_size({'width': 420, 'height': 820})
+        pg.wait_for_timeout(700)
+        hitm = pg.evaluate(HITTABLE, 'xqBtnPlay')
+        mob = pg.evaluate("""() => { const c = document.getElementById('xqBoard').getBoundingClientRect();
+          const cols = getComputedStyle(document.querySelector('#viewXiangqi .xq-layout'))
+            .gridTemplateColumns.split(' ').length;
+          return { cw: Math.round(c.width), ch: Math.round(c.height), cols: cols }; }""")
+        results.append(('象棋页 窄屏棋盘自适应且不溢出视口',
+                        0 < mob['cw'] <= 420 and mob['ch'] > mob['cw'] and mob['cols'] == 1, str(mob)))
+        results.append(('象棋页 窄屏播放按钮仍可点', hitm == 'OK', hitm))
+        pg.screenshot(path=os.path.join(SHOTS, 'xiangqi-mobile.png'))
+        pg.set_viewport_size({'width': 1280, 'height': 900})
+        pg.wait_for_timeout(400)
         pg.close()
         b.close()
     if httpd:

@@ -1,6 +1,6 @@
 # 小游戏乐园 · mini-games
 
-六款纯前端小游戏（无框架、无构建依赖、无后端）：
+七款纯前端小游戏（无框架、无构建依赖、无后端）：
 
 | 游戏 | 玩法 | 目录 |
 | --- | --- | --- |
@@ -10,6 +10,7 @@
 | 🚗 开车不要压井盖儿 | Canvas 夜间躲避：**车轮压到井盖就算输**，并线躲盖、擦边拿惊险奖励、连击倍率、10 关 + 无尽；**车库六辆车**（自行车→赛车：速度/宽度/转向/倍率各不相同，金币跨局累计解锁） | `site/manhole/` |
 | ⚑ 烽火军棋 | 陆战棋对电脑：**红方是你，蓝方全自动**。轮流走子，扛走对方军旗就算赢；铁路直行、工兵拐弯、行营免打、大本营一进不出；9 个关口按军衔晋级，暗棋/明棋两种玩法 | `site/junqi/` |
 | 🎯 靶场神枪手 | Canvas 打靶场：**弹着点离靶心多近决定环数**（内十 20 分），连击 ×1→×8、打空就断；准星会随连射飘起来，屏息能收回来；**炸雷靶打中倒扣 120 分再扣 2.2 秒**；10 关 + 无尽，军械库六把枪（射速/弹匣/散布/倍率各不相同，金币跨局累计解锁） | `site/shooter/` |
+| ♟ 象棋开局教学 | Canvas 棋盘 + **中文记谱逐步讲解**：10 个经典开局（红方先手 6 + 黑方应对 4），逐手演示「这步为什么这么记」；**练习模式**跟着谱走，走错给提示不推进，走通一个开局记分并解锁下一个 | `site/xiangqi/` |
 
 线上地址：**https://freall.github.io/mini-games/**（门户 → 各游戏独立子页）
 
@@ -20,6 +21,9 @@
 `/junqi/?mode=dark`（暗棋，默认）。关口受进度限制（`?level=` 超过已解锁关卡会被夹回来）。
 
 靶场那一页同样支持 `?level=4`（受已解锁关口限制）与 `?gun=sniper`（只能选已解锁的枪）。
+
+象棋那一页支持深链直接进某个开局与练习模式：`/xiangqi/?opening=zhongpao`、
+`/xiangqi/?opening=xianrenzhi&mode=practice`（**深链在读档之后解析**，否则会被存档覆盖，见坑 15）。
 
 ### 🎯 靶场神枪手的三条数值口径
 
@@ -87,7 +91,7 @@ AI 与玩家**共用同一套嫌疑分布**做期望值，不看底牌 —— �
                       ┌─────────────────────────────┐
    源（手改这几个）    │ 小游戏乐园.html   各视图 markup + 全局 <style> │
                       │ games.config.mjs  游戏清单（标题/目录/脚本/app/data 属性）│
-                      │ assets/*.js       游戏脚本（sushi 4 / match3 3 / morse 3 / manhole 3 / junqi 3 / shooter 3）│
+                      │ assets/*.js       游戏脚本（sushi 4 / match3 3 / morse 3 / manhole 3 / junqi 3 / shooter 3 / xiangqi 4）│
                       │ site-src/assets/*.js  多页面专用：boot.js / portal-home.js │
                       └──────────────┬──────────────┘
                                      │  node <脚本>（全部单向生成，产物永不反写源）
@@ -104,6 +108,7 @@ AI 与玩家**共用同一套嫌疑分布**做期望值，不看底牌 —— �
   manhole/index.html 井盖页
   junqi/index.html 军棋页
   shooter/index.html 靶场页
+  xiangqi/index.html 象棋开局教学页
   assets/app.css + *.js（共享）
 ```
 
@@ -127,12 +132,13 @@ AI 与玩家**共用同一套嫌疑分布**做期望值，不看底牌 —— �
 | `node tools/test-manhole-core.mjs` | 井盖核心逻辑单测（244 项断言，含时间窗 DP 的 AI 全关卡可玩性验证 + 每辆车分别过 AI 守门） |
 | `node tools/test-junqi-core.mjs` | 军棋核心逻辑单测（166 项断言：棋盘几何不变式 / 吃子矩阵逐格对照独立规则 / 走子规则 / 暗棋推演 / AI 合法性与不偷看底牌 / 自对局一定收得拢） |
 | `node tools/test-shooter-core.mjs` | 靶场核心逻辑单测（185 项断言：环数表与倍率档 / 弹药换弹状态机 / 散布爬升与封顶 / 命中归属与"炸雷不误伤" / 生成公平地板与不重叠不变式 / 种子确定性 / **脚本化神枪手 6 把枪 × 13 关全过关的守门断言**） |
+| `node tools/test-xiangqi-core.mjs` | 象棋核心逻辑单测（78 项断言：FEN 字母表 / 兵卒过河 / 马蹩腿 / 象塞眼不过河 / 炮隔子 / 九宫与飞将 / 不送将 / 中文记谱（红汉字+黑数字、进退方向、前/后）· **开局库 10 局逐手合法性与记谱往返**） |
 | `node publish.mjs` | 构建 + 推到 `gh-pages` + 触发 Pages 重建 |
 | `node publish.mjs --dry-run` | 只构建并打印将要发布的提交，不推送 |
 | `node publish.mjs --api` | 强制走 GitHub API 通道发布（git push 不通时用） |
-| `python tools/e2e-smoke.py` | 无头浏览器端到端冒烟（131 项断言：门户跳转 / 六个游戏开局 / 电键发报 / 抄收选答 / 数字编解码 / 井盖操控与压盖判负 / 车库换车 / 军棋布阵交换与点击行棋 / 军旗被扛判负 / 扛旗取胜自动晋级 / **靶场瞄准击落与环数、空仓换弹、屏息收散布、炸雷罚分、过关落盘与军械库解锁、窄屏可点性** / 门户回显 / 返回 / 控制台零报错硬断言） |
+| `python tools/e2e-smoke.py` | 无头浏览器端到端冒烟（156 项断言：门户跳转 / 七个游戏开局 / 电键发报 / 抄收选答 / 数字编解码 / 井盖操控与压盖判负 / 车库换车 / 军棋布阵交换与点击行棋 / 军旗被扛判负 / 扛旗取胜自动晋级 / **靶场瞄准击落与环数、空仓换弹、屏息收散布、炸雷罚分、过关落盘与军械库解锁、窄屏可点性** / **象棋棋盘绘制与可点、逐手记谱讲解与将军提示一致、练习走错不推进/走通结算、翻转棋盘、深链进指定开局与练习模式** / 门户回显 / 返回 / 控制台零报错硬断言） |
 | `python tools/e2e-smoke.py --url https://freall.github.io/mini-games` | 同一套断言直接打线上 |
-| `python tools/e2e-smoke.py --single dist/小游戏乐园.html` | 单文件交付版冒烟（26 项断言，file:// + 页内路由，另一条代码路径；含靶场页内路由开局击落与回门户回显） |
+| `python tools/e2e-smoke.py --single dist/小游戏乐园.html` | 单文件交付版冒烟（30 项断言，file:// + 页内路由，另一条代码路径；含象棋页内路由与门户 7 张卡回显） |
 
 > 冒烟脚本优先用 playwright 自带的 chromium，起不来时自动退回系统 Chrome
 > （`pip install -U playwright` 之后自带浏览器的构建号常对不上，这时不用重新下载浏览器）。
@@ -159,7 +165,7 @@ python -m http.server 18080 --directory site     # http://127.0.0.1:18080/
 
 > 摩尔斯电码就是照这个流程加进来的：入口加视图 + 门户加卡片 + 配置加一条，
 > 构建脚本、`boot.js`、多页面门户导航**一行都没改**。
-> 军棋（第五款）、靶场（第六款）照做，同样没碰构建脚本与 `boot.js`。
+> 军棋（第五款）、靶场（第六款）、象棋开局教学（第七款）照做，同样没碰构建脚本与 `boot.js`。
 
 1. **入口 `小游戏乐园.html` 加视图**（带 `SECTION` 标记，视图内的 `<style>` 会被自动抽到共享 CSS）：
 
@@ -195,6 +201,17 @@ python -m http.server 18080 --directory site     # http://127.0.0.1:18080/
 游戏内"返回乐园"按钮给元素加 `data-back-home`；Escape 回门户依赖 `boot.js` 提供的
 `window.APP_ROUTER` stub（游戏脚本在菜单态 Escape 时调用它）。
 
+4. **必须改的两处单文件路由表**（这两处不改，`verify-site.mjs` 会直接报错）：
+
+   - `assets/portal.js` 里三处：`VIEW_IDS.myGame` / `APPS.myGame` / `mounted.myGame`；
+   - 门户**成绩回显有两份独立实现**，都要加：单文件版 `assets/portal.js` 的 `refreshStats()`，
+     与多页面版 `site-src/assets/portal-home.js` 的 `refreshStats()`（漏改后者会让
+     多页面门户的卡片成绩永远显示"—"，冒烟能抓出来）。
+
+> **视图 div 的写法有硬约束**：必须严格写成 `<div class="view" id="viewMyGame">`
+> （双引号、无额外类名前缀）—— `build-pages.mjs` 里靠 `markup.replace('class="view"', 'class="view active"')`
+> 精确匹配来给当前页加 `active`；视图标记的 key 必须与页面 id 一致。
+
 改完跑：
 
 ```bash
@@ -219,7 +236,7 @@ site/ 里有没被引用的残留文件 —— 都会直接报错或告警。
 ## 四、部署
 
 - Pages 源：分支 `gh-pages` 根目录（仓库 Settings → Pages → Build and deployment）。
-  线上地址 https://freall.github.io/mini-games/ ，子页 `/sushi/`、`/match3/`、`/morse/`、`/manhole/`、`/junqi/`。
+  线上地址 https://freall.github.io/mini-games/ ，子页 `/sushi/`、`/match3/`、`/morse/`、`/manhole/`、`/junqi/`、`/shooter/`、`/xiangqi/`。
 - 页面里全部使用**相对路径**（`assets/app.css`、`../assets/game.js`、`data-goto="sushi"`），
   所以放在用户名仓库的子路径下也不会挂。
 - `publish.mjs` 的实现要点：不切分支、不动工作区 —— 用临时 `GIT_INDEX_FILE` +
@@ -392,6 +409,28 @@ site/ 里有没被引用的残留文件 —— 都会直接报错或告警。
       守卫**必须内联**：那种情况下 `portal-home.js` 自己也在 404 清单里，外部脚本兜不了自己。
     副作用：`/morse/?mode=recv` 这类裸目录深链在 Qoder Sites 上会先回退再被守卫纠正。
 
+23. **「按钮文案不刷新」的根因往往是"某个分支里根本没赋值"**（象棋）
+    播放按钮原本只在 `!inPractice` 分支里更新文案，练习模式下不赋值 → 从练习退出后
+    按钮上还挂着上一次的旧字。而 `render()` 又不管控件（只画 canvas），
+    `_debugPractice()` 直接调 `finishPractice()` + `render()` 也没刷控件。
+    → ① 文案改成**任何分支都赋值**（练习态给「练习中」）；
+      ② `finishPractice()` / `exitPractice()` 结尾显式补 `updateControls()`。
+    教训：**"某状态下这个文案应该是什么"要在 update 函数里穷举全部分支**，
+    不能靠"另一个状态进来时会帮我刷"。
+
+24. **练习/模式状态一旦写进存档，重载页面会自动回到那个模式**（象棋）
+    `xiangqi-mode` 存了练习态 → 冒烟里 `goto()` 重载后自动进练习模式，
+    于是"走到底看播放按钮"验到的是练习态的按钮（三个全禁用）。
+    → 断言前必须**显式读 `stats().practice` 并主动退出练习**，
+      别假设"重载 = 回到默认演示态"。同类问题：`morse-mode`、`manhole-vehicle`。
+
+25. **"某局末手必然将军"这种断言是错的 —— 用机制验证替代数据巧合**（象棋）
+    中炮 6 手是平稳布局定型（`炮二平五 / 马8进7 / … / 马2进3`），整条主变**根本不叫将**；
+    于是"末手该有将军提示"这条断言永远假。硬凑数据没用，正确做法是
+    **用引擎现场构造一个"落子即将军"的局面**（如 `4k4/9/9/9/9/9/9/9/9/3R1K3 w`，
+    红车 (9,3) 冲到 (0,3) 贴将）走一手验提示真的出现；再反向扫描全库确认**没有误报**。
+    规则：**UI 反馈类断言要验"机制在什么条件下触发"，而不是赌库里恰好有一例**。
+
 ---
 
 ## 六、目录速查
@@ -400,7 +439,7 @@ site/ 里有没被引用的残留文件 —— 都会直接报错或告警。
 mini-games/
 ├─ 小游戏乐园.html          ← 源：各视图 markup + 全局样式（本地双击即玩）
 ├─ games.config.mjs         ← 源：游戏清单（唯一事实来源）
-├─ assets/*.js              ← 源：游戏脚本（morse/manhole/junqi/shooter 各 -data/-core/主模块）
+├─ assets/*.js              ← 源：游戏脚本（morse/manhole/junqi/shooter/xiangqi 各 -data/-core/主模块；xiangqi 为 -engine/-openings/-board + 主模块）
 ├─ site-src/assets/*.js     ← 源：多页面专用脚本（boot.js / portal-home.js）
 ├─ build-pages.mjs          → site/          多页面站点
 ├─ build-single.mjs         → dist/          自包含单文件交付版
@@ -411,6 +450,7 @@ mini-games/
 ├─ tools/test-manhole-core.mjs 井盖核心逻辑单测（纯 node：判定/生成/计分/时间窗 DP AI 可玩性）
 ├─ tools/test-junqi-core.mjs 军棋核心逻辑单测（纯 node：棋盘几何/吃子矩阵/走子规则/暗棋推演/AI 不偷看底牌/自对局收得拢）
 ├─ tools/test-shooter-core.mjs 靶场核心逻辑单测（纯 node：环数计分/弹药状态机/散布与屏息/命中归属/生成公平地板/脚本化神枪手全关卡守门）
+├─ tools/test-xiangqi-core.mjs 象棋核心逻辑单测（纯 node：走法规则/九宫飞将/中文记谱/开局库逐手合法性与记谱往返）
 ├─ site/                    （git 忽略）多页面产物，也是 Pages 发布内容
 ├─ dist/                    （git 忽略）单文件交付版
 ├─ history/                 版本台账（v1…v9 与 MANIFEST.md）
