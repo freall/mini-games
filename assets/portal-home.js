@@ -61,10 +61,21 @@
       ? (shLv > 10 ? '无尽第 ' + (shLv - 10) + ' 轮' : '第 ' + shLv + ' 关')
       : '未上岗');
 
+    /* 象棋开局教学：最高分 + 已完整走通的开局数（走通一个即解锁下一个） */
+    var xqBest = readStore('xiangqi-best', 0);
+    var xqCleared = 0, xqTotal = 10;
+    try {
+      var done = JSON.parse(window.localStorage.getItem('xiangqi-done') || '[]');
+      if (Object.prototype.toString.call(done) === '[object Array]') { xqCleared = done.length; }
+      if (window.XQOpenings && window.XQOpenings.OPENINGS) { xqTotal = window.XQOpenings.OPENINGS.length; }
+    } catch (e) { /* 忽略 */ }
+    setTxt('ptXqBest', xqBest > 0 ? xqBest.toLocaleString('zh-CN') : '—');
+    setTxt('ptXqCleared', xqCleared > 0 ? xqCleared + ' / ' + xqTotal : '未开张');
+
     var badge = document.getElementById('ptRecordBadge');
     if (badge) {
       badge.classList.toggle('show',
-        sushiBest > 0 || m3Best > 0 || morseBest > 0 || mhBest > 0 || jqBest > 0 || shBest > 0);
+        sushiBest > 0 || m3Best > 0 || morseBest > 0 || mhBest > 0 || jqBest > 0 || shBest > 0 || xqBest > 0);
     }
   }
 

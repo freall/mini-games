@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>象棋开局教学 · 小游戏乐园</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-app="XIANGQI_APP" data-game="xiangqi" data-home="../">
+<div class="view active" id="viewXiangqi">
+
+
+<div class="xq-app">
+
+  <header class="xq-topbar">
+    <div class="xq-brand">
+      <button class="xq-home" type="button" data-back-home aria-label="返回小游戏乐园">← 乐园</button>
+      <span class="xq-logo" aria-hidden="true">象</span>
+      <div>
+        <h1>象棋开局教学</h1>
+        <p class="xq-sub">常见开局 · 逐手动画演示 · 中文记谱讲解</p>
+      </div>
+    </div>
+    <div class="xq-top-actions">
+      <button id="xqBtnFlip" class="xq-btn xq-ghost" type="button" title="交换红黑视角">⇅ 翻转棋盘</button>
+      <button id="xqBtnPractice" class="xq-btn xq-accent" type="button">🎯 练习模式</button>
+    </div>
+  </header>
+
+  <div class="xq-hud">
+    <div class="xq-stat"><div class="k">最高分</div><div class="v" id="xqScore">0</div></div>
+    <div class="xq-stat"><div class="k">已走通开局</div><div class="v" id="xqCleared">0 / 10</div></div>
+    <div class="xq-stat"><div class="k">当前研习</div><div class="v" id="xqStageName">—</div></div>
+  </div>
+
+  <main class="xq-layout">
+
+    <!-- 左：开局目录 -->
+    <aside class="xq-panel xq-left">
+      <div class="xq-panel-h">
+        <h2>开局库</h2>
+        <span class="xq-count" id="xqOpeningCount">10 种</span>
+      </div>
+      <div id="xqOpeningList" class="xq-op-list"></div>
+      <div class="xq-tip">
+        <b>提示</b>：先看「中炮」和「屏风马」打底，再看「仙人指路」体会现代主流。
+      </div>
+    </aside>
+
+    <!-- 中：棋盘 -->
+    <section class="xq-board-col">
+      <div class="xq-board-wrap" id="xqBoardWrap">
+        <canvas id="xqBoard" aria-label="象棋棋盘"></canvas>
+      </div>
+
+      <div class="xq-controls">
+        <button id="xqBtnReset" class="xq-btn" type="button" title="回到初始局面">⏮ 重置</button>
+        <button id="xqBtnPrev" class="xq-btn" type="button" title="上一手（←）">◀ 上一手</button>
+        <button id="xqBtnPlay" class="xq-btn xq-primary" type="button" title="播放 / 暂停（空格）">▶ 播放</button>
+        <button id="xqBtnNext" class="xq-btn" type="button" title="下一手（→）">下一手 ▶</button>
+        <div class="xq-speed">
+          <label for="xqRngSpeed">速度</label>
+          <input id="xqRngSpeed" type="range" min="0" max="100" value="45">
+          <span id="xqSpeedVal" class="xq-mono">45%</span>
+        </div>
+        <label class="xq-chk"><input type="checkbox" id="xqChkCoord" checked> 显示纵线编号</label>
+        <label class="xq-chk"><input type="checkbox" id="xqChkHint" checked> 显示可走点</label>
+      </div>
+
+      <div class="xq-step-panel">
+        <div class="xq-step-head">
+          <span id="xqStepLabel" class="xq-step-label">初始局面</span>
+        </div>
+        <div id="xqStepNote" class="xq-step-note"></div>
+      </div>
+    </section>
+
+    <!-- 右：讲解 -->
+    <aside class="xq-panel xq-right">
+      <div class="xq-op-head">
+        <h2 id="xqOpTitle">中炮（当头炮）</h2>
+        <div id="xqOpAlias" class="xq-chips"></div>
+        <div id="xqOpMeta" class="xq-chips"></div>
+      </div>
+
+      <p id="xqOpIntro" class="xq-intro"></p>
+
+      <div id="xqOpIdea" class="xq-block"></div>
+      <div id="xqOpKeys" class="xq-block"></div>
+
+      <div class="xq-block">
+        <div class="xq-sec-h">棋谱</div>
+        <div id="xqMoveList" class="xq-move-list"></div>
+      </div>
+
+      <div id="xqOpTrap" class="xq-block"></div>
+      <div id="xqCounterBox" class="xq-block"></div>
+    </aside>
+
+  </main>
+
+  <footer class="xq-foot">
+    <span>规则与记谱按中国象棋标准（纵线记谱法）。点击棋谱任意一手可跳转，点击棋盘上的棋子可查看该子走法。
+      快捷键 <b>←</b>/<b>→</b> 上下手 · <b>空格</b> 播放/暂停 · <b>Esc</b> 返回乐园。</span>
+  </footer>
+
+</div>
+</div>
+<script src="../assets/xiangqi-engine.js"></script>
+<script src="../assets/xiangqi-openings.js"></script>
+<script src="../assets/xiangqi-board.js"></script>
+<script src="../assets/xiangqi.js"></script>
+<script src="../assets/boot.js"></script>
+</body>
+</html>

@@ -2151,3 +2151,291 @@ button{font-family:inherit}
   #viewShooter .sh-panel{padding:19px 15px}
   #viewShooter .sh-art{font-size:44px}
 }
+
+/* SECTION: xiangqi-styles · 象棋开局教学（作用域限定 #viewXiangqi，不外泄）
+   视觉基调：暖木色的棋室 —— 木纹棋盘、宣纸面板、朱红/墨黑两色棋子。
+   三条约定（与军棋/靶场一致）：
+     1. 全部选择器带 #viewXiangqi 前缀。源项目原来用的是 :root 变量 + 全局
+        类名（.btn/.panel/.layout…），直接搬进来会污染门户与其它六款游戏；
+     2. 棋盘是单张 canvas（设计分辨率 552×614，CSS 等比缩放），不用管 dpr；
+     3. 尺寸按"能塞进视口"倒推：三栏栅格与画布上限都由 min(...) 算出，
+        窄屏（≤1180px）塌成单栏，棋盘在最上面。 */
+#viewXiangqi{
+  --xq-bg:#f5f2ec;
+  --xq-panel:#ffffff;
+  --xq-panel-2:#faf8f4;
+  --xq-line:#e3ddd2;
+  --xq-line-strong:#cfc6b6;
+  --xq-text:#232019;
+  --xq-text-2:#6b6355;
+  --xq-text-3:#9a9184;
+  --xq-red:#c62828;
+  --xq-red-soft:#fdecea;
+  --xq-dark:#1f2937;
+  --xq-dark-soft:#eceef1;
+  --xq-accent:#a9762a;
+  --xq-accent-soft:#fdf4e3;
+  --xq-green:#2e7d32;
+  --xq-shadow:0 1px 2px rgba(40,30,15,.06), 0 6px 20px rgba(40,30,15,.07);
+  --xq-mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+  position:relative;
+  background:
+    radial-gradient(900px 480px at 50% -10%, rgba(169,118,42,.10), transparent 62%),
+    linear-gradient(180deg,#faf7f0 0%,var(--xq-bg) 46%,#f1ede4 100%);
+  color:var(--xq-text);
+  font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  font-size:14px;line-height:1.65;
+  min-height:100vh;overflow-x:hidden;
+}
+#viewXiangqi *{box-sizing:border-box}
+#viewXiangqi .xq-app{width:100%;max-width:1560px;margin:0 auto;display:flex;flex-direction:column}
+
+/* ---------- 顶栏 ---------- */
+#viewXiangqi .xq-topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  padding:12px 20px;background:linear-gradient(180deg,#fffdf9,#fbf7f0);
+  border-bottom:1px solid var(--xq-line);
+}
+#viewXiangqi .xq-brand{display:flex;align-items:center;gap:12px;min-width:0}
+#viewXiangqi .xq-home{
+  appearance:none;cursor:pointer;white-space:nowrap;
+  background:#fff;border:1px solid var(--xq-line-strong);color:var(--xq-text-2);
+  border-radius:9px;padding:7px 13px;font-size:13px;font-weight:600;transition:.14s;
+}
+#viewXiangqi .xq-home:hover{border-color:var(--xq-accent);color:var(--xq-accent);background:var(--xq-accent-soft)}
+#viewXiangqi .xq-logo{
+  width:42px;height:42px;border-radius:50%;flex:0 0 auto;
+  display:grid;place-items:center;
+  background:radial-gradient(circle at 35% 30%, #fff, #f6e3cf);
+  border:2px solid var(--xq-red);color:var(--xq-red);
+  font:700 24px "KaiTi","STKaiti",serif;
+  box-shadow:0 2px 8px rgba(198,40,40,.18);
+}
+#viewXiangqi .xq-topbar h1{margin:0;font-size:17px;letter-spacing:.3px}
+#viewXiangqi .xq-topbar .xq-sub{margin:0;font-size:12px;color:var(--xq-text-3)}
+#viewXiangqi .xq-top-actions{display:flex;gap:9px;flex-wrap:wrap}
+
+/* ---------- 按钮 ---------- */
+#viewXiangqi .xq-btn{
+  appearance:none;cursor:pointer;
+  border:1px solid var(--xq-line-strong);background:#fff;color:var(--xq-text);
+  padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;
+  font-family:inherit;transition:.14s;white-space:nowrap;
+}
+#viewXiangqi .xq-btn:hover:not(:disabled){border-color:var(--xq-accent);color:var(--xq-accent);background:var(--xq-accent-soft)}
+#viewXiangqi .xq-btn:disabled{opacity:.4;cursor:not-allowed}
+#viewXiangqi .xq-btn.xq-primary{
+  background:var(--xq-accent);border-color:var(--xq-accent);color:#fff;
+  box-shadow:0 2px 8px rgba(169,118,42,.28);
+}
+#viewXiangqi .xq-btn.xq-primary:hover:not(:disabled){background:#916326;border-color:#916326;color:#fff}
+#viewXiangqi .xq-btn.xq-accent{border-color:#d9c49a;background:var(--xq-accent-soft);color:#8a6120}
+#viewXiangqi .xq-btn.xq-accent.on{background:var(--xq-red);border-color:var(--xq-red);color:#fff}
+#viewXiangqi .xq-btn.xq-ghost{background:transparent}
+
+/* ---------- 布局 ---------- */
+#viewXiangqi .xq-layout{
+  display:grid;
+  grid-template-columns:218px minmax(360px,1fr) 400px;
+  gap:16px;padding:16px 20px 8px;align-items:start;
+}
+#viewXiangqi .xq-panel{
+  background:var(--xq-panel);border:1px solid var(--xq-line);
+  border-radius:12px;box-shadow:var(--xq-shadow);overflow:hidden;
+}
+#viewXiangqi .xq-panel-h{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 14px 10px;border-bottom:1px solid var(--xq-line);
+}
+#viewXiangqi .xq-panel-h h2{
+  margin:0;font-size:13px;letter-spacing:.5px;color:var(--xq-text-2);text-transform:uppercase;
+}
+#viewXiangqi .xq-count{font-size:11px;color:var(--xq-text-3)}
+
+/* ---------- 开局列表 ---------- */
+#viewXiangqi .xq-op-list{padding:8px;max-height:calc(100vh - 300px);overflow:auto}
+#viewXiangqi .xq-group-title{
+  font-size:11px;font-weight:700;color:var(--xq-text-3);
+  letter-spacing:.8px;padding:10px 8px 6px;
+}
+#viewXiangqi .xq-op-item{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  border:1px solid transparent;background:transparent;
+  border-radius:9px;padding:9px 11px;margin-bottom:3px;
+  font-family:inherit;position:relative;transition:.14s;
+}
+#viewXiangqi .xq-op-item:hover{background:var(--xq-panel-2);border-color:var(--xq-line)}
+#viewXiangqi .xq-op-item.active{background:var(--xq-accent-soft);border-color:#e2cfa7}
+#viewXiangqi .xq-op-item.active .xq-op-name{color:var(--xq-accent)}
+#viewXiangqi .xq-op-name{display:block;font-size:13.5px;font-weight:700;color:var(--xq-text)}
+#viewXiangqi .xq-op-sub{display:block;font-size:11px;color:var(--xq-text-3);margin-top:1px}
+#viewXiangqi .xq-lv{
+  position:absolute;top:9px;right:9px;
+  font-size:10px;padding:1px 6px;border-radius:99px;font-weight:600;
+}
+#viewXiangqi .xq-lv1{background:#e7f4e9;color:#2e7d32}
+#viewXiangqi .xq-lv2{background:#fdf1dc;color:#a9762a}
+#viewXiangqi .xq-lv3{background:#f2ecf7;color:#7050a0}
+#viewXiangqi .xq-tip{
+  margin:4px 8px 10px;padding:10px 11px;
+  background:var(--xq-panel-2);border:1px dashed var(--xq-line-strong);
+  border-radius:8px;font-size:11.5px;color:var(--xq-text-2);line-height:1.6;
+}
+
+/* ---------- 棋盘列 ---------- */
+#viewXiangqi .xq-board-col{display:flex;flex-direction:column;gap:12px;align-items:center}
+#viewXiangqi .xq-board-col > *{width:100%;max-width:620px}
+#viewXiangqi .xq-board-wrap{
+  background:var(--xq-panel);border:1px solid var(--xq-line);border-radius:14px;
+  padding:12px;box-shadow:var(--xq-shadow);width:100%;max-width:620px;
+}
+#viewXiangqi #xqBoard{
+  display:block;width:100%;height:auto;border-radius:8px;cursor:pointer;
+}
+#viewXiangqi #xqBoard.practice-on{box-shadow:0 0 0 2px var(--xq-green);cursor:crosshair}
+#viewXiangqi .xq-board-wrap.xq-practice{box-shadow:0 0 0 2px var(--xq-green),var(--xq-shadow)}
+#viewXiangqi .xq-controls{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  background:var(--xq-panel);border:1px solid var(--xq-line);
+  border-radius:12px;padding:10px 12px;box-shadow:var(--xq-shadow);
+}
+#viewXiangqi .xq-speed{
+  display:flex;align-items:center;gap:6px;margin-left:auto;
+  font-size:12px;color:var(--xq-text-2);
+}
+#viewXiangqi .xq-speed input[type=range]{width:78px;accent-color:var(--xq-accent)}
+#viewXiangqi .xq-mono{font-family:var(--xq-mono)}
+#viewXiangqi .xq-chk{
+  display:flex;align-items:center;gap:5px;font-size:12px;color:var(--xq-text-2);cursor:pointer;
+}
+#viewXiangqi .xq-chk input{accent-color:var(--xq-accent)}
+
+/* ---------- 步骤面板 ---------- */
+#viewXiangqi .xq-step-panel{
+  background:var(--xq-panel);border:1px solid var(--xq-line);
+  border-radius:12px;box-shadow:var(--xq-shadow);overflow:hidden;
+}
+#viewXiangqi .xq-step-head{padding:9px 14px;background:var(--xq-panel-2);border-bottom:1px solid var(--xq-line)}
+#viewXiangqi .xq-step-label{font-size:12.5px;font-weight:700;color:var(--xq-accent);letter-spacing:.3px}
+#viewXiangqi .xq-step-note{padding:12px 14px;font-size:13px;min-height:62px}
+#viewXiangqi .xq-step-note .xq-mv-hl{color:var(--xq-text-3)}
+#viewXiangqi .xq-step-note .xq-mono{
+  font-family:var(--xq-mono);font-size:14px;font-weight:700;
+  background:var(--xq-accent-soft);color:#7d5a1c;padding:1px 7px;border-radius:5px;
+}
+#viewXiangqi .xq-step-note .xq-why{
+  margin-top:7px;padding:7px 10px;font-size:12px;
+  background:var(--xq-panel-2);border-left:3px solid var(--xq-accent);
+  border-radius:0 6px 6px 0;color:var(--xq-text-2);
+}
+#viewXiangqi .xq-step-note .xq-why b{color:var(--xq-accent)}
+#viewXiangqi .xq-step-note .xq-check-warn{
+  margin-top:7px;padding:6px 10px;font-size:12.5px;
+  background:var(--xq-red-soft);color:var(--xq-red);border-radius:6px;font-weight:600;
+}
+#viewXiangqi .xq-step-note.warn{color:#a9762a}
+#viewXiangqi .xq-step-note.practice{color:var(--xq-green)}
+#viewXiangqi .xq-step-note .xq-muted{color:var(--xq-text-3);font-size:12px}
+
+/* ---------- 右栏讲解 ---------- */
+#viewXiangqi .xq-right{padding:0 0 6px;max-height:calc(100vh - 130px);overflow:auto}
+#viewXiangqi .xq-op-head{padding:15px 16px 12px;border-bottom:1px solid var(--xq-line)}
+#viewXiangqi .xq-op-head h2{margin:0 0 7px;font-size:19px;letter-spacing:.3px}
+#viewXiangqi .xq-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:4px}
+#viewXiangqi .xq-chip{
+  font-size:11px;padding:2px 8px;border-radius:99px;
+  background:var(--xq-panel-2);border:1px solid var(--xq-line);
+  color:var(--xq-text-2);font-weight:600;
+}
+#viewXiangqi .xq-chip-red{background:var(--xq-red-soft);border-color:#f3cfcb;color:var(--xq-red)}
+#viewXiangqi .xq-chip-dark{background:var(--xq-dark-soft);border-color:#d6dae0;color:var(--xq-dark)}
+#viewXiangqi .xq-chip-soft{background:#f4f1ea;border-color:#e6e0d3;color:var(--xq-text-3);font-weight:500}
+#viewXiangqi .xq-intro{
+  margin:0;padding:12px 16px;font-size:13.5px;color:var(--xq-text-2);
+  background:linear-gradient(180deg,#fffdf8,#fff);border-bottom:1px solid var(--xq-line);
+}
+#viewXiangqi .xq-block{padding:13px 16px;border-bottom:1px solid var(--xq-line)}
+#viewXiangqi .xq-block:last-child{border-bottom:none}
+#viewXiangqi .xq-sec-h{
+  font-size:11.5px;font-weight:800;letter-spacing:1.2px;
+  color:var(--xq-accent);text-transform:uppercase;margin-bottom:9px;
+}
+#viewXiangqi .xq-idea-p{margin:0 0 8px;font-size:13px;color:var(--xq-text-2);line-height:1.72}
+#viewXiangqi .xq-idea-p b{color:var(--xq-accent);margin-right:3px}
+#viewXiangqi .xq-key-row{
+  display:grid;grid-template-columns:22px 74px 1fr;
+  gap:7px;align-items:baseline;padding:7px 8px;border-radius:7px;
+  cursor:pointer;transition:.14s;
+}
+#viewXiangqi .xq-key-row:hover{background:var(--xq-panel-2)}
+#viewXiangqi .xq-key-no{
+  width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+  background:var(--xq-accent-soft);color:var(--xq-accent);
+  font-size:10.5px;font-weight:800;align-self:center;
+}
+#viewXiangqi .xq-key-move{
+  font-family:var(--xq-mono);font-size:12px;font-weight:700;
+  color:var(--xq-red);white-space:nowrap;
+}
+#viewXiangqi .xq-key-text{font-size:12.5px;color:var(--xq-text-2);line-height:1.6}
+
+/* 棋谱 */
+#viewXiangqi .xq-move-list{display:flex;flex-direction:column;gap:2px}
+#viewXiangqi .xq-mv-row{display:grid;grid-template-columns:30px 1fr 1fr;gap:5px;align-items:center}
+#viewXiangqi .xq-mv-no{font-size:11.5px;color:var(--xq-text-3);font-family:var(--xq-mono);text-align:right}
+#viewXiangqi .xq-mv{
+  font-family:var(--xq-mono);font-size:12.5px;font-weight:600;
+  padding:4px 7px;border-radius:6px;cursor:pointer;
+  border:1px solid transparent;background:transparent;
+  text-align:left;transition:.12s;
+}
+#viewXiangqi .xq-mv:hover{background:var(--xq-panel-2);border-color:var(--xq-line)}
+#viewXiangqi .xq-mv.xq-red{color:var(--xq-red)}
+#viewXiangqi .xq-mv.xq-dark{color:var(--xq-dark)}
+#viewXiangqi .xq-mv.cur{
+  background:var(--xq-accent);color:#fff !important;
+  border-color:var(--xq-accent);box-shadow:0 1px 5px rgba(169,118,42,.3);
+}
+#viewXiangqi .xq-trap-p{
+  margin:0 0 7px;padding:8px 11px;font-size:12.5px;
+  background:#fffaf0;border:1px solid #f0e2c4;border-radius:7px;
+  color:#7d5a1c;line-height:1.6;
+}
+#viewXiangqi .xq-trap-p.xq-muted{background:var(--xq-panel-2);border-color:var(--xq-line);color:var(--xq-text-3)}
+#viewXiangqi .xq-trap-p b{color:#916326}
+
+/* 成绩条（并入乐园后新增：让"练过多少"有个可见的进度） */
+#viewXiangqi .xq-hud{display:flex;flex-wrap:wrap;gap:8px;padding:0 20px 10px}
+#viewXiangqi .xq-stat{
+  flex:1 1 120px;padding:8px 12px;border-radius:11px;
+  background:linear-gradient(180deg,#fffdf9,#fbf7f0);
+  border:1px solid var(--xq-line);box-shadow:var(--xq-shadow);
+}
+#viewXiangqi .xq-stat .k{font-size:10.5px;color:var(--xq-text-3);letter-spacing:.06em}
+#viewXiangqi .xq-stat .v{font-size:16px;font-weight:800;color:var(--xq-accent);margin-top:2px}
+#viewXiangqi .xq-foot{
+  padding:8px 20px 18px;font-size:11.5px;color:var(--xq-text-3);text-align:center;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:1400px){
+  #viewXiangqi .xq-layout{grid-template-columns:200px minmax(340px,1fr) 336px}
+}
+@media (max-width:1180px){
+  #viewXiangqi .xq-layout{grid-template-columns:1fr}
+  #viewXiangqi .xq-panel.xq-left{order:2}
+  #viewXiangqi .xq-board-col{order:1}
+  #viewXiangqi .xq-panel.xq-right{order:3;max-height:none}
+  #viewXiangqi .xq-op-list{max-height:260px;display:flex;flex-wrap:wrap;gap:4px}
+  #viewXiangqi .xq-group-title{width:100%}
+  #viewXiangqi .xq-op-item{width:calc(50% - 3px)}
+}
+@media (max-width:720px){
+  #viewXiangqi .xq-layout{padding:12px 12px 6px;gap:12px}
+  #viewXiangqi .xq-topbar{padding:10px 12px}
+  #viewXiangqi .xq-hud{padding:0 12px 10px}
+  #viewXiangqi .xq-op-item{width:100%}
+  #viewXiangqi .xq-board-wrap{padding:8px}
+  #viewXiangqi .xq-controls{padding:8px 10px;gap:6px}
+  #viewXiangqi .xq-speed{margin-left:0;flex:1 1 100%;justify-content:space-between}
+}
